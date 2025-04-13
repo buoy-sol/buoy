@@ -1,0 +1,90 @@
+<svg width="219" xmlns="http://www.w3.org/2000/svg" height="216" id="screenshot-e384008e-ccbd-80a0-8006-05ea9f514786" viewBox="-161 -1591 219 216" style="-webkit-print-color-adjust::exact" xmlns:xlink="http://www.w3.org/1999/xlink" fill="none" version="1.1">
+  <style>
+  </style>
+  <g id="shape-e384008e-ccbd-80a0-8006-05ea9f514786" style="fill:#000000" filter="url(#filter-render-447)" width="160" height="160" rx="0" ry="0">
+    <defs>
+      <filter id="filter-render-447" x="-0.09202453987730061" y="-0.09375" width="1.2576687116564418" height="1.2625" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
+        <feFlood flood-opacity="0" result="BackgroundImageFix">
+        </feFlood>
+        <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0">
+        </feColorMatrix>
+        <feOffset dx="4" dy="4">
+        </feOffset>
+        <feGaussianBlur stdDeviation="0">
+        </feGaussianBlur>
+        <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0">
+        </feColorMatrix>
+        <feBlend mode="normal" in2="BackgroundImageFix" result="filter_e384008e-ccbd-80a0-8006-05eac53f6b70">
+        </feBlend>
+        <feBlend mode="normal" in="SourceGraphic" in2="filter_e384008e-ccbd-80a0-8006-05eac53f6b70" result="shape">
+        </feBlend>
+      </filter>
+      <filter id="filter-shadow-render-447" x="-0.09202453987730061" y="-0.09375" width="1.2576687116564418" height="1.2625" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
+        <feFlood flood-opacity="0" result="BackgroundImageFix">
+        </feFlood>
+        <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0">
+        </feColorMatrix>
+        <feOffset dx="4" dy="4">
+        </feOffset>
+        <feGaussianBlur stdDeviation="0">
+        </feGaussianBlur>
+        <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0">
+        </feColorMatrix>
+        <feBlend mode="normal" in2="BackgroundImageFix" result="filter_e384008e-ccbd-80a0-8006-05eac53f6b70">
+        </feBlend>
+        <feBlend mode="normal" in="SourceGraphic" in2="filter_e384008e-ccbd-80a0-8006-05eac53f6b70" result="shape">
+        </feBlend>
+      </filter>
+    </defs>
+    <g id="shape-e384008e-ccbd-80a0-8006-05ea9f57d81d" style="display:none">
+      <g class="fills" id="fills-e384008e-ccbd-80a0-8006-05ea9f57d81d">
+        <rect rx="0" ry="0" x="-145" y="-1575" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" width="160" height="160" fill="none" style="fill:none">
+        </rect>
+      </g>
+    </g>
+    <g id="shape-e384008e-ccbd-80a0-8006-05ea9f5b68cc">
+      <g class="fills" id="fills-e384008e-ccbd-80a0-8006-05ea9f5b68cc">
+        <path d="M-65.000,-1575.000L-46.459,-1552.063L-17.977,-1559.721L-16.459,-1530.267L11.085,-1519.721L-5.000,-1495.000L11.085,-1470.279L-16.459,-1459.733L-17.977,-1430.279L-46.459,-1437.937L-65.000,-1415.000L-83.541,-1437.937L-112.023,-1430.279L-113.541,-1459.733L-141.085,-1470.279L-125.000,-1495.000L-141.085,-1519.721L-113.541,-1530.267L-112.023,-1559.721L-83.541,-1552.063L-65.000,-1575.000Z" style="fill:#feef00">
+        </path>
+      </g>
+    </g>
+    <g id="shape-e384008e-ccbd-80a0-8006-05eb06010ff6">
+      <g transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000)" class="text-container" x="-145" y="-1535" width="163" height="91.99999999999955" rx="0" ry="0">
+        <defs>
+          <pattern patternUnits="userSpaceOnUse" x="-145" y="-1535" width="72" height="79.1875" id="fill-0-render-450-0">
+            <g>
+              <rect width="72" height="79.1875" style="fill:#000000;fill-opacity:1">
+              </rect>
+            </g>
+          </pattern>
+          <pattern patternUnits="userSpaceOnUse" x="-145" y="-1535" width="72" height="79.1875" id="fill-1-render-450-0">
+            <g>
+              <rect width="72" height="79.1875" style="fill:#000000;fill-opacity:1">
+              </rect>
+            </g>
+          </pattern>
+        </defs>
+        <g class="fills" id="fills-e384008e-ccbd-80a0-8006-05eb06010ff6">
+          <text x="-99.5" y="-1496" dominant-baseline="ideographic" textLength="72" lengthAdjust="spacingAndGlyphs" style="text-transform:uppercase;font-family:&quot;Ubuntu Mono&quot;;letter-spacing:normal;font-style:normal;font-weight:700;white-space:pre;font-size:36px;text-decoration:none solid rgb(0, 0, 0);direction:ltr;fill:#000000;fill-opacity:1">join</text>
+        </g>
+        <defs>
+          <pattern patternUnits="userSpaceOnUse" x="-145" y="-1535" width="72" height="79.1875" id="fill-0-render-450-1">
+            <g>
+              <rect width="72" height="79.1875" style="fill:#000000;fill-opacity:1">
+              </rect>
+            </g>
+          </pattern>
+          <pattern patternUnits="userSpaceOnUse" x="-145" y="-1535" width="72" height="79.1875" id="fill-1-render-450-1">
+            <g>
+              <rect width="72" height="79.1875" style="fill:#000000;fill-opacity:1">
+              </rect>
+            </g>
+          </pattern>
+        </defs>
+        <g class="fills" id="fills-e384008e-ccbd-80a0-8006-05eb06010ff6">
+          <text x="-99.5" y="-1452.8125" dominant-baseline="ideographic" textLength="72" lengthAdjust="spacingAndGlyphs" style="text-transform:uppercase;font-family:&quot;Ubuntu Mono&quot;;letter-spacing:normal;font-style:normal;font-weight:700;white-space:pre;font-size:36px;text-decoration:none solid rgb(0, 0, 0);direction:ltr;fill:#000000;fill-opacity:1">now!</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
