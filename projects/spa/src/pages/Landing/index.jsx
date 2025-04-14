@@ -108,7 +108,7 @@ export default function Landing() {
             <div className="landing" style={{textTransform:"uppercase"}}>
 		<h1>welcome to [name-is-wip]</h1>
 		<h2>the place to be!</h2>
-		<a className="star-sign" href="/register">
+		<a className="star-sign" href="/zone">
 		    <Star />
 		</a>
 
