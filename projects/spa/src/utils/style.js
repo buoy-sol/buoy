@@ -1,7 +1,7 @@
 export default {
     color: {
-	student: "#06b8ba",
-	mentor: "#ff5556FF",
+	student: "#ff5556FF",
+	mentor: "#06b8ba",
 	menus: "#fadf0c"
     }
 }

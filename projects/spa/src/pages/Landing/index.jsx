@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import style from "../../utils/style"
 
 function Star() {
     return (
@@ -112,11 +113,11 @@ export default function Landing() {
 		    <Star />
 		</a>
 
-		<button className="button mentor" onClick={function(){setPane("mentor")}}>TEACH TO EARN</button>
-		<button className="button student" onClick={function(){setPane("student")}}>PAY TO LEARN</button>
+		<button className="button" style={{background: style.color.mentor}} onClick={function(){setPane("mentor")}}>TEACH TO EARN</button>
+		<button className="button" style={{background: style.color.student}} onClick={function(){setPane("student")}}>PAY TO LEARN</button>
 
 		{"mentor" == pane &&
-		 <div className="button pane mentor">
+		 <div className="button pane" style={{background: style.color.mentor}}>
 		     <h2>YOUR FEEDBACK IS VALUABLE! GET PAID!</h2>
 		     <h4>{`YOUR INSIGHTS CAN BE CRUCIAL TO SOMEONE'S LEARNING JOURNEY.
 
@@ -124,7 +125,7 @@ THIS PLATFORM'S MISSION IS TO PROVIDE A WAY!`}</h4>
 		 </div>}
 
 		{"student" == pane && 
-		 <div id="mentor" className="button pane student">
+		 <div id="mentor" className="button pane" style={{background: style.color.student}}>
 		     <h2>LEARN TO DRAW WITH ALMOST NO EFFORT!</h2>
 		     <h4>{`DON'T KNOW WHERE TO BEGIN?
 

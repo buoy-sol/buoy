@@ -33,7 +33,7 @@ function Menu() {
 			"SETINGS"
 		    ].map(function(e){
 			return (
-			    <li key={e} style={{listStyleType: "none", padding: "7px"}}>
+			    <li key={e} style={{listStyleType: "none"}}>
 				<button className="button">{e}</button>
 			    </li>
 			)
@@ -57,15 +57,18 @@ export default function TheZone() {
     }
 
     return (
-        <VisibleContext.Provider value={{visible, setVisible}}>
-	    {visible.MENU &&
-	     <Menu />}
-            <div className="thezone" style={{textTransform:"uppercase"}}>
+	<div id="the-zone" style={{textTransform: "uppercase"}}>
+            <VisibleContext.Provider value={{visible, setVisible}}>
+		{visible.MENU &&
+		 <Menu />}
 		<h2>Welcome to The Zone!</h2>
 		<p>THIS HERE IS THE CENTRAL POINT OF THE ENTIRE APPLICATION. NO MATTER WHAT YOU DO YOU ENTER THE ZONE AND EVERYTHING SHOULD BE READY FOR YOU</p>
-		<button className="button" style={{background: style.color.mentor}} onClick={function(){toggle("B")}}>TOGGLE SIDE B</button>
-		<button className="button" style={{background: style.color.student}} onClick={function(){toggle("A")}}>TOGGLE SIDE A</button>
-		<button className="button" onClick={function(){toggle("MENU")}}>MENU</button>
+		
+		<div id="the-zone-controls" style={{display: "flex", justifyContent: "center", alignItems: "center"}}>
+		    <button className="button" style={{background: style.color.mentor}} onClick={function(){toggle("B")}}>TOGGLE SIDE B</button>
+		    <button className="button" style={{background: style.color.student}} onClick={function(){toggle("A")}}>TOGGLE SIDE A</button>
+		    <button className="button" onClick={function(){toggle("MENU")}}>MENU</button>
+		</div>
 
 		<div style={{display: "flex", flexWrap: "wrap"}}>
 		    {visible.B &&
@@ -78,7 +81,7 @@ export default function TheZone() {
 			 <Canvas id="focusedA" dashes={style.color.student} width="500" height="500" />
 		     </section>}
 		</div>
-	    </div>
-        </VisibleContext.Provider>
+            </VisibleContext.Provider>
+	</div>
     )
 }
