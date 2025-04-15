@@ -4,7 +4,7 @@ import style from "../../utils/style"
 function Star() {
     return (
 	<>
-            <svg width="219" xmlns="http://www.w3.org/2000/svg" height="216" id="screenshot-e384008e-ccbd-80a0-8006-05ea9f514786" viewBox="-161 -1591 219 216" style={{webkitPrintColorAdjust: "exact"}} xmlnsXlink="http://www.w3.org/1999/xlink" fill="none" version="1.1">
+            <svg width="219" xmlns="http://www.w3.org/2000/svg" height="216" id="screenshot-e384008e-ccbd-80a0-8006-05ea9f514786" viewBox="-161 -1591 219 216" style={{display: "block", webkitPrintColorAdjust: "exact"}} xmlnsXlink="http://www.w3.org/1999/xlink" fill="none" version="1.1">
                 <style>
                 </style>
                 <g id="shape-e384008e-ccbd-80a0-8006-05ea9f514786" style={{fill:"#000000"}} filter="url(#filter-render-286)" width="160" height="160" rx="0" ry="0">
@@ -115,6 +115,7 @@ export default function Landing() {
 
 		<button className="button" style={{background: style.color.mentor}} onClick={function(){setPane("mentor")}}>TEACH TO EARN</button>
 		<button className="button" style={{background: style.color.student}} onClick={function(){setPane("student")}}>PAY TO LEARN</button>
+		<button className="button" onClick={function(){window.location.replace("/zone")}}>ENTER THE ZONE</button>
 
 		{"mentor" == pane &&
 		 <div className="button pane" style={{background: style.color.mentor}}>
