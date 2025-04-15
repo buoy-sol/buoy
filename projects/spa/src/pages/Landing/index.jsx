@@ -1,10 +1,20 @@
-import { useEffect, useState } from "react"
+import { useContext, useEffect, useState } from "react"
 import style from "../../utils/style"
+import { WalletContext } from "../../contexts/WalletContext"
 
 function Star() {
+
     return (
 	<>
-            <svg width="219" xmlns="http://www.w3.org/2000/svg" height="216" id="screenshot-e384008e-ccbd-80a0-8006-05ea9f514786" viewBox="-161 -1591 219 216" style={{display: "block", webkitPrintColorAdjust: "exact"}} xmlnsXlink="http://www.w3.org/1999/xlink" fill="none" version="1.1">
+            <svg width="219"
+		 xmlns="http://www.w3.org/2000/svg"
+		 height="216"
+		 id="screenshot-e384008e-ccbd-80a0-8006-05ea9f514786"
+		 viewBox="-161 -1591 219 216"
+		 style={{display: "block", webkitPrintColorAdjust: "exact"}}
+		 xmlnsXlink="http://www.w3.org/1999/xlink"
+		 fill="none"
+		 version="1.1">
                 <style>
                 </style>
                 <g id="shape-e384008e-ccbd-80a0-8006-05ea9f514786" style={{fill:"#000000"}} filter="url(#filter-render-286)" width="160" height="160" rx="0" ry="0">
@@ -103,13 +113,15 @@ export default function Landing() {
     let [pane, setPane] = useState("mentor")
 
     useEffect(function() {}, [pane])
+
+    let {wallet, setWallet} = useContext(WalletContext)
     
     return (
         <>
             <div className="landing" style={{textTransform:"uppercase"}}>
 		<h1>welcome to [name-is-wip]</h1>
 		<h2>the place to be!</h2>
-		<a className="star-sign" href="/zone">
+		<a onClick={function(e){setWallet(wallet+1)}} className="star-sign">
 		    <Star />
 		</a>
 
