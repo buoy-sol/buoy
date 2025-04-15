@@ -105,10 +105,18 @@ button:focus-visible {
 #the-zone .button {
     min-width: 13em;
     margin: 7px;
-}    
+}
+
+#menu {
+    width: 30%;
+}
 
 @media only screen and (max-width: 800px) {
     #the-zone-controls {
         flex-direction: column;
+    }
+
+    #menu {
+	width: 50%;
     }
 }

@@ -16,19 +16,22 @@ function Menu() {
     }
     
     return (
-	<div style={{position: "fixed",
+	<div id="menu"
+	     style={{display: "flex",
+		     alignItems: "center",
+		     justifyContent: "center",
+		     position: "fixed",
 		     top: 0,
 		     left: 0,
-		     width: "80%",
 		     height: "100%",
 		     background: style.color.menus}}>
 	    <nav>
-		<ul>
+		<ul style={{padding: 0}}>
 		    <li style={{listStyleType: "none", padding: "7px"}}>
 			<button className="button" onClick={function() {toggle("MENU")}}>THE ZONE</button>
 		    </li>
 		    {[
-			"SALES",
+			"YOUR SALES",
 			"HELP & FAQ",
 			"SETINGS"
 		    ].map(function(e){
