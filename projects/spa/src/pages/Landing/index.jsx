@@ -109,19 +109,18 @@ function Star() {
 }
 
 export default function Landing() {
-
     let [pane, setPane] = useState("mentor")
 
-    useEffect(function() {}, [pane])
+    useEffect(function() {}, [])
 
-    let {wallet, setWallet} = useContext(WalletContext)
-    
+    let {wallet, setTrigger} = useContext(WalletContext)
+    console.log([wallet[0].address])
     return (
         <>
             <div className="landing" style={{textTransform:"uppercase"}}>
-		<h1>welcome to [name-is-wip]</h1>
+		<h1>welcome to [name-is-wip] {wallet[0].address && <b>{wallet[0].address}</b>}</h1>
 		<h2>the place to be!</h2>
-		<a onClick={function(e){setWallet(wallet+1)}} className="star-sign">
+		<a onClick={function() { setTrigger(Date.now()) }} className="star-sign">
 		    <Star />
 		</a>
 
