@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState } from "react"
 import style from "../../utils/style"
 import { WalletContext } from "../../contexts/WalletContext"
+import { useWallets, useConnect, useDisconnect } from "@wallet-standard/react-core"
 
 function Star() {
 
@@ -113,14 +114,25 @@ export default function Landing() {
 
     useEffect(function() {}, [])
 
-    let {wallet, setTrigger} = useContext(WalletContext)
-    console.log([wallet[0].address])
+    let [selected, setSelected] = useContext(WalletContext)
+    let wallets = useWallets()
+    let chosen = wallets[0] // @todo user has to make this choice
+
+    // @todo move
+    let [isConnecting, connect] = useConnect(chosen)
+    let [isDisconnecting, disconnect] = useDisconnect(chosen)
+    
+    async function choose(uiwallet) {
+	let connected = await connect()
+	setSelected(connected[0]) // @todo user has to make this choice
+    }
+    
     return (
         <>
             <div className="landing" style={{textTransform:"uppercase"}}>
-		<h1>welcome to [name-is-wip] {wallet[0].address && <b>{wallet[0].address}</b>}</h1>
+		<h1>welcome to [name-is-wip] {selected && <b>{selected.address}</b>}</h1>
 		<h2>the place to be!</h2>
-		<a onClick={function() { setTrigger(Date.now()) }} className="star-sign">
+		<a onClick={function(){choose(chosen)}} className="star-sign">
 		    <Star />
 		</a>
 

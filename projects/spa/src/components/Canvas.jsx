@@ -54,10 +54,12 @@ export default function Canvas(props) {
     return <canvas ref={canvasRef}
                    width={props.width}
                    height={props.height}
-                   onMouseDown={start}
-                   onMouseUp={stop}
-                   onMouseMove={draw}
-                   style={{touchAction: "none",
-                           border: `2px dashed ${props.dashes || 'red'}`}}
+                   onPointerDown={start}
+                   onPointerUp={stop}
+                   onPointerMove={draw}
+                   style={{
+		       touchAction: "none",
+		       border: `2px dashed ${props.dashes || 'red'}`
+		   }}
            />
 }
