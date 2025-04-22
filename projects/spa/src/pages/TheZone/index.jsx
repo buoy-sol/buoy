@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { AuthContext } from "../../contexts/AuthContext"
 import Canvas from "../../components/Canvas"
+import Viewer from "../../components/Viewer"
 import style from "../../utils/style"
 import { Navigate } from "react-router-dom"
 
@@ -52,6 +53,7 @@ function Menu() {
 export default function TheZone() {
 
     let session = useContext(AuthContext)
+    let viewerRef = useRef(null)
     let [loading, setLoading] = useState(true)
     let [visible, setVisible] = useState({
 	B: true,
@@ -67,7 +69,7 @@ export default function TheZone() {
 	if (session) {
 	    setLoading(false)
 	}
-    }, [session]) 
+    }, [session])
 
     if (loading) {
 	return <div>Loading...</div>
@@ -76,7 +78,7 @@ export default function TheZone() {
     if (! session) {
         return <Navigate to={{ pathname: "/" }} />
     }
-        
+
     return (
 	<div id="the-zone" style={{textTransform: "uppercase"}}>
 	    <VisibleContext.Provider value={{visible, setVisible}}>
@@ -94,7 +96,7 @@ export default function TheZone() {
 		<div style={{display: "flex", flexWrap: "wrap"}}>
 		    {visible.B &&
 		     <section className="container" style={{flexGrow: 1}}>
-			 <Canvas id="focusedB" dashes={style.color.mentor} width="500" height="500" />
+			 <Viewer id="focusedB" dashes={style.color.mentor} width="500" height="500" />
 		     </section>}
 		    
 		    {visible.A &&
