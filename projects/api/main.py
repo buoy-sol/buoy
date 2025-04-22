@@ -1,6 +1,7 @@
 import base58
 import json
 import operator
+import random
 import time
 import uuid
 import uvicorn
@@ -113,6 +114,7 @@ async def authenticate():
 
 @api.route("/api/dev/authn/session", methods=["GET", "OPTIONS"])
 async def authenticated():
+    time.sleep(random.randint(0, 10) * 0.1)
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
@@ -124,7 +126,7 @@ async def authenticated():
         )
 
     handle = req.cookies.get(SESS_KEY)
-    retrieved = mem.session[handle]
+    retrieved = mem.session.get(handle, None)
     if retrieved is None:
         return Response(
             json.dumps({"failed": "Unathorized"}), status=401, headers=headers.full

@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from "react"
 import style from "../../utils/style"
+import { AuthContext } from "../../contexts/AuthContext"
 import { WalletContext } from "../../contexts/WalletContext"
 import { useWallets, useConnect, useDisconnect } from "@wallet-standard/react-core"
 
@@ -114,6 +115,8 @@ export default function Landing() {
 
     useEffect(function() {}, [])
 
+    let session = useContext(AuthContext)
+    let [loading, setLoading] = useState(true)
     let [selected, setSelected] = useContext(WalletContext)
     let wallets = useWallets()
     let chosen = wallets[0] // @todo user has to make this choice
@@ -140,14 +143,24 @@ export default function Landing() {
 	return str
     }
 
+    useEffect(function () {
+        if (session) {
+            setLoading(false)
+        }
+    }, [session])
+                                    
+    if (loading) {
+        return <div>Loading...</div>
+    }   
+
     return (
         <>
             <div className="landing" style={{textTransform:"uppercase"}}>
-		<h1>welcome to [name-is-wip] <b>{selected && truncated(selected.address)}</b></h1>
+		<h1>welcome to [name-is-wip] <b>{session && truncated(session.address)}</b></h1>
 		<h2>the place to be!</h2>
 		<a onClick={function(e){
 		       e.preventDefault()
-		       if (!selected) {
+		       if (!session.address) {
 			   choose(chosen)
 			   return
 		       }

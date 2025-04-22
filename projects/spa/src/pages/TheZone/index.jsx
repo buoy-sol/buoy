@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react"
+import { AuthContext } from "../../contexts/AuthContext"
 import Canvas from "../../components/Canvas"
 import style from "../../utils/style"
+import { Navigate } from "react-router-dom"
 
 const VisibleContext = createContext({
     B: true,
@@ -49,6 +51,8 @@ function Menu() {
 
 export default function TheZone() {
 
+    let session = useContext(AuthContext)
+    let [loading, setLoading] = useState(true)
     let [visible, setVisible] = useState({
 	B: true,
 	A: true,
@@ -59,9 +63,23 @@ export default function TheZone() {
 	setVisible({...visible, [target]: !visible[target]})
     }
 
+    useEffect(function () {
+	if (session) {
+	    setLoading(false)
+	}
+    }, [session]) 
+
+    if (loading) {
+	return <div>Loading...</div>
+    }
+    
+    if (! session) {
+        return <Navigate to={{ pathname: "/" }} />
+    }
+        
     return (
 	<div id="the-zone" style={{textTransform: "uppercase"}}>
-            <VisibleContext.Provider value={{visible, setVisible}}>
+	    <VisibleContext.Provider value={{visible, setVisible}}>
 		{visible.MENU &&
 		 <Menu />}
 		<h2>Welcome to The Zone!</h2>
@@ -72,7 +90,7 @@ export default function TheZone() {
 		    <button className="button" style={{background: style.color.student}} onClick={function(){toggle("A")}}>TOGGLE SIDE A</button>
 		    <button className="button" onClick={function(){toggle("MENU")}}>MENU</button>
 		</div>
-
+		
 		<div style={{display: "flex", flexWrap: "wrap"}}>
 		    {visible.B &&
 		     <section className="container" style={{flexGrow: 1}}>
@@ -84,7 +102,7 @@ export default function TheZone() {
 			 <Canvas id="focusedA" dashes={style.color.student} width="500" height="500" />
 		     </section>}
 		</div>
-            </VisibleContext.Provider>
+	    </VisibleContext.Provider>
 	</div>
     )
 }
