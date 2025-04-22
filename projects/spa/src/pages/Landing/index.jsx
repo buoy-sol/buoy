@@ -12,7 +12,7 @@ function Star() {
 		 height="216"
 		 id="screenshot-e384008e-ccbd-80a0-8006-05ea9f514786"
 		 viewBox="-161 -1591 219 216"
-		 style={{display: "block", webkitPrintColorAdjust: "exact"}}
+		 style={{display: "block", WebkitPrintColorAdjust: "exact"}}
 		 xmlnsXlink="http://www.w3.org/1999/xlink"
 		 fill="none"
 		 version="1.1">
@@ -20,8 +20,8 @@ function Star() {
                 </style>
                 <g id="shape-e384008e-ccbd-80a0-8006-05ea9f514786" style={{fill:"#000000"}} filter="url(#filter-render-286)" width="160" height="160" rx="0" ry="0">
                     <defs>
-			<filter id="filter-render-286" x="-0.09202453987730061" y="-0.09375" width="1.2576687116564418" height="1.2625" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
-			    <feFlood flood-opacity="0" result="BackgroundImageFix">
+			<filter id="filter-render-286" x="-0.09202453987730061" y="-0.09375" width="1.2576687116564418" height="1.2625" filterUnits="objectBoundingBox" colorInterpolationFilters="sRGB">
+			    <feFlood floodOpacity="0" result="BackgroundImageFix">
 			    </feFlood>
 			    <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0">
 			    </feColorMatrix>
@@ -36,8 +36,8 @@ function Star() {
 			    <feBlend mode="normal" in="SourceGraphic" in2="filter_e384008e-ccbd-80a0-8006-05eac53f6b70" result="shape">
 			    </feBlend>
 			</filter>
-			<filter id="filter-shadow-render-286" x="-0.09202453987730061" y="-0.09375" width="1.2576687116564418" height="1.2625" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
-			    <feFlood flood-opacity="0" result="BackgroundImageFix">
+			<filter id="filter-shadow-render-286" x="-0.09202453987730061" y="-0.09375" width="1.2576687116564418" height="1.2625" filterUnits="objectBoundingBox" colorInterpolationFilters="sRGB">
+			    <feFlood floodOpacity="0" result="BackgroundImageFix">
 			    </feFlood>
 			    <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0">
 			    </feColorMatrix>
@@ -82,7 +82,7 @@ function Star() {
 				</pattern>
 			    </defs>
 			    <g className="fills" id="fills-e384008e-ccbd-80a0-8006-05eb06010ff6">
-				<text x="-99.5" y="-1496" dominant-baseline="ideographic" textLength="72" lengthAdjust="spacingAndGlyphs" style={{textTransform:"uppercase",fontFamily:"&quot;Ubuntu Mono&quot;",letterSpacing:"normal",fontStyle:"normal",fontWeight:700,whiteSpace:"pre",fontSize:"36px",textDecoration:"none solid rgb(0, 0, 0)",direction:"ltr",fill:"#000000",fillOopacity:1}}>join</text>
+				<text x="-99.5" y="-1496" dominantBaseline="ideographic" textLength="72" lengthAdjust="spacingAndGlyphs" style={{textTransform:"uppercase",fontFamily:"Ubuntu",letterSpacing:"normal",fontStyle:"normal",fontWeight:700,whiteSpace:"pre",fontSize:"36px",textDecoration:"none solid rgb(0, 0, 0)",direction:"ltr",fill:"#000000",fillOopacity:1}}>join</text>
 			    </g>
 			    <defs>
 				<pattern patternUnits="userSpaceOnUse" x="-145" y="-1535" width="72" height="79.1875" id="fill-0-render-289-1">
@@ -99,7 +99,7 @@ function Star() {
 				</pattern>
 			    </defs>
 			    <g className="fills" id="fills-e384008e-ccbd-80a0-8006-05eb06010ff6">
-				<text x="-99.5" y="-1452.8125" dominant-baseline="ideographic" textLength="72" lengthAdjust="spacingAndGlyphs" style={{textTransform:"uppercase",fontFamily:"&quot;Ubuntu Mono&quot;",letterSpacing:"normal",fontStyle:"normal",fontWeight:700,whiteSpace:"pre",fontSize:"36px",textDecoration:"none solid rgb(0, 0, 0)",direction:"ltr",fill:"#000000",fillOopacity:1}}>now!</text>
+				<text x="-99.5" y="-1452.8125" dominantBaseline="ideographic" textLength="72" lengthAdjust="spacingAndGlyphs" style={{textTransform:"uppercase",fontFamily:"Ubuntu Mono",letterSpacing:"normal",fontStyle:"normal",fontWeight:700,whiteSpace:"pre",fontSize:"36px",textDecoration:"none solid rgb(0, 0, 0)",direction:"ltr",fill:"#000000",fillOopacity:1}}>now!</text>
 			    </g>
 			</g>
                     </g>
@@ -126,13 +126,33 @@ export default function Landing() {
 	let connected = await connect()
 	setSelected(connected[0]) // @todo user has to make this choice
     }
-    
+
+    function truncated(str, limit = 7) {
+	if (!str) {
+	    return str
+	}
+	
+	let text = str?.toString().substring(0, limit)
+	if (str.length > limit) {
+	    return `${text}...`
+	}
+
+	return str
+    }
+
     return (
         <>
             <div className="landing" style={{textTransform:"uppercase"}}>
-		<h1>welcome to [name-is-wip] {selected && <b>{selected.address}</b>}</h1>
+		<h1>welcome to [name-is-wip] <b>{selected && truncated(selected.address)}</b></h1>
 		<h2>the place to be!</h2>
-		<a onClick={function(){choose(chosen)}} className="star-sign">
+		<a onClick={function(e){
+		       e.preventDefault()
+		       if (!selected) {
+			   choose(chosen)
+			   return
+		       }
+		       window.location.replace("/zone")
+		   }} className="star-sign">
 		    <Star />
 		</a>
 
