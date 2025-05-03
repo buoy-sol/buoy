@@ -93,6 +93,17 @@ with describe("rpc handler "):
 
             res_d = rpc.client.send_transaction(txn_mint, txn_opts)
 
+            # --E
+            txn_freeze = rpc.freeze_token_account(
+                token_account.pubkey(), end_user.pubkey(), mint.pubkey(), mint_control
+            )
+            sig_idx = txn_freeze.message.account_keys.index(end_user.pubkey())
+            sigs = txn_freeze.signatures
+            sigs[sig_idx] = end_user.sign_message(bytes(txn_freeze.message))
+            txn_freeze.signatures = sigs
+
+            res_e = rpc.client.send_transaction(txn_freeze, txn_opts)
+
             tokens = rpc.get_token_accounts(end_user.pubkey(), "confirmed")
             token_keys = list(map(operator.attrgetter("pubkey"), tokens.value))
 

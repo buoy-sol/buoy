@@ -160,6 +160,27 @@ class RPC:
         txn = VersionedTransaction(msg, [NullSigner(fee_payer), authority])
         return txn
 
+    def freeze_token_account(
+        self, target: Pubkey, fee_payer: Pubkey, mint: Pubkey, authority: Keypair
+    ):
+        """?"""
+        blockhash = self.client.get_latest_blockhash().value.blockhash
+        ixs = [
+            tokenprog.freeze_account(
+                tokenprog.FreezeAccountParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    account=target,
+                    mint=mint,
+                    authority=authority.pubkey(),
+                    multi_signers=[authority.pubkey()],
+                )
+            )
+        ]
+
+        msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
+        txn = VersionedTransaction(msg, [NullSigner(fee_payer), authority])
+        return txn
+
     def transfer(self) -> typing.Any:
         """?"""
 
