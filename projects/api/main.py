@@ -244,6 +244,7 @@ async def store() -> UnitAddress:
         db["users"][address].setdefault("units", {})
 
         if "rent" == unit.access:
+            # make an NFT
             rpc.get_mint_account()
             rpc.create_token_account()
             rpc.create_associated_token_account()
@@ -253,7 +254,6 @@ async def store() -> UnitAddress:
         )
 
         return unit.address
-        # make an NFT
 
 
 @api.route("/api/dev/unit/media", methods=["POST", "OPTIONS"])
