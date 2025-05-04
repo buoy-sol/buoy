@@ -36,7 +36,7 @@ class F:
         if SESS_KEY not in cookies:
             return None, "Missing credentials in request"
 
-        handle = req.cookies.get(SESS_KEY)
+        handle = cookies.get(SESS_KEY)
         retrieved = mem.session.get(handle, None)
         if retrieved is None:
             return None, "Unathorized"

@@ -54,4 +54,7 @@ class User:
                 adjusted.append(by_user[k] - (diff / 2))
                 continue
 
+        if not any(adjusted):
+            return 1
+
         return sum(adjusted) / len(adjusted)

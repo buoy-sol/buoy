@@ -23,7 +23,9 @@ from werkzeug.utils import secure_filename
 
 from app.chain.rpc import rpc
 from app.db import dbm_open_bytes
+from app.rating import Rating
 from app.studyunit import Studyunit
+from app.user import User
 from app.util import F, SESS_KEY
 
 api = Flask("api")
@@ -187,8 +189,8 @@ async def unit_store() -> UnitAddress:
     with dbm_open_bytes(api.config["DATABASE"]) as db:
         contributed = list(
             filter(
-                F.where(dict(access="free")),
-                map(json.loads, map(F.bytes_to_str, db["users"][address]["units"])),
+                F.where({"access": "free"}),
+                filter(F.where({"contributor": address}), db["units"]),
             )
         )
 
@@ -269,27 +271,73 @@ async def units_next():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
+    # address, err = F.resolve_address_from_cookies(req.cookies, mem)
+
+    # if err is not None:
+    #     return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
+
+    address = "nil"  # temporary!
+
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
-        units = list(
-            itertools.chain(
-                *list(map(operator.itemgetter("units"), db["users"].values()))
+        _user = next(filter(F.where({"address": address}), db["users"].values()), None)
+        assert _user is not None
+
+        user = User(**_user)
+
+        ratings = list(
+            map(
+                Rating.from_dict,
+                filter(F.where({"contributor": user.address}), db["ratings"]),
             )
         )
 
-        # find next where access: rent and rating > user-rating
+        user_rated_units = list(map(operator.attrgetter("unit"), ratings))
 
-        user_rating = 0
-        next_rent = None
+        relevant = list(
+            filter(
+                lambda e: e.unit in user_rated_units and e.contributor != user.address,
+                map(Rating.from_dict, db["ratings"]),
+            )
+        )
 
-        # find next where access: free and rating > user-rating
-        next_free = None
+        grouped = itertools.groupby(db["ratings"], key=operator.itemgetter("unit"))
+        rated = {}
 
-        return Response({}, headers=headers.full)
+        for k, v in grouped:
+            values = list(map(operator.itemgetter("value"), list(v)))
+            if not any(values):
+                rated[k] = 1
+                continue
+
+            rated[k] = sum(values) / len(values)
+
+        user_skill = user.get_skill(ratings, relevant)
+
+        # find next where access: rent and rating > user_skill
+        next_rent = next(
+            filter(
+                lambda e: rated.get(e["address"], 0) >= user_skill,
+                filter(F.where({"access": "rent"}), db["units"]),
+            ),
+            None,
+        )
+
+        # find next where access: free and rating > user_skill
+        next_free = next(
+            filter(
+                lambda e: rated.get(e["address"], 0) >= user_skill,
+                filter(F.where({"access": "free"}), db["units"]),
+            ),
+            None,
+        )
+
+        return Response(
+            json.dumps({"free": next_free, "rent": next_rent}), headers=headers.full
+        )
 
 
 @api.errorhandler(Exception)
 def errors(ex):
-    raise ex
     return Response(json.dumps(dict(failed=repr(ex))), status=500, headers=headers.cors)
 
 
