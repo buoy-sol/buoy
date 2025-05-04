@@ -3,16 +3,13 @@
 
 import typing
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from solders.pubkey import Pubkey
 
 
 @dataclass
 class Studyunit:
     """primary data entity in the system"""
-
-    # unit access type
-    access: typing.Literal["rent", "free"] = "free"
 
     # address of the struct, on chain, if any
     address: Pubkey
@@ -26,6 +23,9 @@ class Studyunit:
     # current holder
     holder: Pubkey
 
+    # unit access type
+    access: typing.Literal["rent", "free"] = "free"
+
     # for how long it can be rented (seconds)
     rent_period: int = 60 * 15  # 15m as a default
 
@@ -33,7 +33,7 @@ class Studyunit:
     inactive_period: int = 60 * 60 * 24  # 24h as a default
 
     # filename->checksum pair
-    files: dict[str, str] = dict()
+    files: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def create(cls, *args: typing.Any) -> "Studyunit":

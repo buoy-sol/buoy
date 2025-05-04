@@ -1,4 +1,5 @@
 import base58
+import itertools
 import json
 import operator
 import os
@@ -9,7 +10,8 @@ import typing
 import uvicorn
 
 from asgiref.wsgi import WsgiToAsgi
-from dataclasses import dataclass
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass
 from flask import Flask, Response, redirect, request as req
 from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
@@ -20,7 +22,9 @@ from urllib.parse import urlparse
 from werkzeug.utils import secure_filename
 
 from app.chain.rpc import rpc
-from app.skills.services.study import Studyunit
+from app.db import dbm_open_bytes
+from app.studyunit import Studyunit
+from app.util import F, SESS_KEY
 
 api = Flask("api")
 api.config["UPLOAD_FOLDER"] = "/opt/skills/static"
@@ -41,49 +45,7 @@ headers = NS(
 
 headers.full = dict(headers.main, **headers.cors)
 
-ErrorResult = typing.NewType("ErrorResult", str)
 UnitAddress = typing.NewType("UnitAddress", Pubkey)
-
-
-class F:
-
-    @staticmethod
-    def bytes_to_str(e: bytes) -> str:
-        return e.decode("utf-8")
-
-    @staticmethod
-    def where(criteria: dict[str, typing.Any]) -> typing.Any:
-        def inner(e: dict) -> bool:
-            ok = True
-
-            for k, v in criteria.items():
-                if k not in e:
-                    raise KeyError(k)
-
-                matched = e.get(k) == v
-                if not matched:
-                    ok = False
-
-            return ok
-
-        return inner
-
-    @staticmethod
-    def resolve_address_from_cookies(
-        cookies: dict,
-    ) -> typing.Tuple[str | None, ErrorResult]:
-        if SESS_KEY not in cookies:
-            return None, "Missing credentials in request"
-
-        handle = req.cookies.get(SESS_KEY)
-        retrieved = mem.session.get(handle, None)
-        if retrieved is None:
-            return None, "Unathorized"
-
-        if "address" not in retrieved:
-            return None, "Corrupted session data"
-
-        return retrieved["address"], None
 
 
 @dataclass
@@ -97,7 +59,6 @@ class Store:
 
 
 mem = Store.create()
-SESS_KEY = "solana:session"
 
 ## AUTH
 
@@ -213,17 +174,17 @@ async def challenge():
 ## UNITS
 
 
-@api.route("/api/dev/unit", methods=["POST", "OPTIONS"])
-async def store() -> UnitAddress:
+@api.route("/api/dev/units", methods=["POST", "OPTIONS"])
+async def unit_store() -> UnitAddress:
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address, err = F.resolve_address_from_cookies(req.cookies)
+    address, err = F.resolve_address_from_cookies(req.cookies, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
 
-    with dbm.open(api.config["DATABASE"]) as db:
+    with dbm_open_bytes(api.config["DATABASE"]) as db:
         contributed = list(
             filter(
                 F.where(dict(access="free")),
@@ -239,27 +200,21 @@ async def store() -> UnitAddress:
                 f"Cannot rent/sell a unit before contributing at least {n} for free first"
             )
 
-        db.setdefault("users", {})
-        db["users"].setdefault(address, {})
-        db["users"][address].setdefault("units", {})
-
         if "rent" == unit.access:
             # make an NFT
             rpc.get_mint_account()
             rpc.create_token_account()
             rpc.create_associated_token_account()
 
-        db["users"][address]["units"][unit.address] = bytes(
-            json.dumps(asdict(unit)), "utf-8"
-        )
+        db["units"].append(bytes(asdict(unit)))
 
         return unit.address
 
 
-@api.route("/api/dev/unit/media", methods=["POST", "OPTIONS"])
-def media_upload() -> UnitAddress:
+@api.route("/api/dev/units/media", methods=["POST", "OPTIONS"])
+def unit_media_upload() -> UnitAddress:
 
-    address, err = F.resolve_address_from_cookies(req.cookies)
+    address, err = F.resolve_address_from_cookies(req.cookies, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -269,14 +224,16 @@ def media_upload() -> UnitAddress:
     if "unit" not in req.json:
         raise Exception("Missing unit address in media upload request")
 
-    with dbm.open(api.config["DATABASE"], "c") as db:
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         unit_ref: UnitAddress = UnitAddress(req.json["unit"])
+        unit: StudyUnit | None = next(
+            filter(F.where({"address": unit_ref}), db["units"]), None
+        )
 
-        if unit_ref not in db["users"][address]["units"]:
+        if unit is None:
             raise Exception("Given unit does not exist!")
 
-        unit: Studyunit = Studyunit(**db["users"][address]["units"][unit_ref])
-
+        unit_idx: int = db["units"].index(unit)
         f = request.files
 
         for e, data in request.files:
@@ -302,11 +259,37 @@ def media_upload() -> UnitAddress:
 
             unit.files[filename] = {"stored": storename}
 
+        db["units"][unit_idx] = unit
+
     return unit.address
+
+
+@api.route("/api/dev/units", methods=["GET", "OPTIONS"])
+async def units_next():
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        units = list(
+            itertools.chain(
+                *list(map(operator.itemgetter("units"), db["users"].values()))
+            )
+        )
+
+        # find next where access: rent and rating > user-rating
+
+        user_rating = 0
+        next_rent = None
+
+        # find next where access: free and rating > user-rating
+        next_free = None
+
+        return Response({}, headers=headers.full)
 
 
 @api.errorhandler(Exception)
 def errors(ex):
+    raise ex
     return Response(json.dumps(dict(failed=repr(ex))), status=500, headers=headers.cors)
 
 

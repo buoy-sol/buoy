@@ -1,0 +1,21 @@
+import typing
+
+from solders.pubkey import Pubkey
+
+
+class Rating(typing.NamedTuple):
+    # who made the rating
+    contributor: Pubkey
+
+    # unit reference
+    unit: Pubkey
+
+    # literally just 1 to 10
+    value: float
+
+    # unix timestamp
+    timestamp: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Rating":
+        return cls(**data)
