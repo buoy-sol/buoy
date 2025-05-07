@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from app.studyunit import Studyunit
 
 DB_KEY = "lolwhatever"
-SYS_USR = "sysusr"
+SYS_USR = "nil"
 
 
 @contextmanager
@@ -25,7 +25,7 @@ def dbm_open_bytes(path: str, mode: str) -> typing.Generator:
         loaded.setdefault("ratings", [])
 
         if SYS_USR not in loaded["users"]:
-            loaded["users"][SYS_USR] = {"address": "nil"}
+            loaded["users"][SYS_USR] = {"address": "nil", "holding": None}
 
             loaded["units"] = [
                 asdict(

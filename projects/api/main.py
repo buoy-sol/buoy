@@ -1,4 +1,6 @@
 import base58
+import functools
+import httpx
 import itertools
 import json
 import operator
@@ -332,12 +334,48 @@ async def units_next():
         )
 
         return Response(
-            json.dumps({"free": next_free, "rent": next_rent}), headers=headers.full
+            json.dumps({"free": next_free, "rent": next_rent, "picked": user.holding}),
+            headers=headers.full,
         )
+
+
+@api.route("/api/dev/units/pick", methods=["POST", "OPTIONS"])
+async def unit_pick():
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    address = "nil"  # temporary!
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        _user = next(filter(F.where({"address": address}), db["users"].values()), None)
+        assert _user is not None
+
+        db["users"][address]["holding"] = req.json.get("unit")
+
+    return Response("{}", headers=headers.full)
+
+
+async def read_unit(unit_id, expire: int | None = None):
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        unit = next(filter(F.where({"address": unit_id}), db["units"]), None)
+
+        assert unit is not None
+        async with httpx.AsyncClient() as c:
+            return await c.get(list(unit["files"].items())[0][0], follow_redirects=True)
+
+
+@api.route("/api/dev/units/<unit_id>.<ext>", methods=["GET", "OPTIONS"])
+async def get_unit(unit_id: str, ext: str):
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    data: bytes = await read_unit(unit_id, 15 * 60)
+    content_type = {"Content-type": "image/jpeg"}
+    return Response(data.content, headers=dict(headers.cors, **content_type))
 
 
 @api.errorhandler(Exception)
 def errors(ex):
+    raise ex
     return Response(json.dumps(dict(failed=repr(ex))), status=500, headers=headers.cors)
 
 

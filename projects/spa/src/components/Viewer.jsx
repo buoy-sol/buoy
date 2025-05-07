@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import OpenSeadragon from "openseadragon"
+import { API } from "../utils/api"
 
 export default function Viewer(props) {
     useEffect(function() {
@@ -7,8 +8,11 @@ export default function Viewer(props) {
             id: "viewer",
             tileSources: {
                 type: "image",
-                "url": "https://openseadragon.github.io//example-images/grand-canyon-landscape-overlooking.jpg"
-            }
+		"url": `${API}/units/${props.unit}.jpg`
+                // "url": "https://openseadragon.github.io//example-images/grand-canyon-landscape-overlooking.jpg"
+            },
+	    showNavigationControl: false,
+	    maxZoomPixelRatio: 3
         })
                                                                                                                
         return function() {

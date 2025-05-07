@@ -9,6 +9,9 @@ class User:
     # identity
     address: Pubkey
 
+    # the Studyunit the user is currently holding
+    holding: Pubkey
+
     @classmethod
     def create(cls):
         return cls()

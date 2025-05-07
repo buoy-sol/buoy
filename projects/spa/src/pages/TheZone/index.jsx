@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { AuthContext } from "../../contexts/AuthContext"
 import Canvas from "../../components/Canvas"
 import Viewer from "../../components/Viewer"
+import { API } from "../../utils/api"
 import style from "../../utils/style"
 import { Navigate } from "react-router-dom"
 
@@ -50,11 +51,53 @@ function Menu() {
     )
 }
 
+function Unit({style, value: data}) {
+    if (! data) {
+	return <p>No unit</p>
+    }
+
+    let files = Object.entries(data.files)
+    let [thumb, setThumb] = useState(null)
+
+    if (! thumb && files.some(Boolean)) {
+	setThumb(files[0][0])
+    }
+
+    async function pick(unit) {
+	await fetch(`${API}/units/pick`, {method: "POST", body: JSON.stringify({unit: unit}), headers: {"Content-type": "application/json"}})
+    }
+
+    return (
+	<div style={{display: "flex",
+		     flexDirection: "column",
+		     alignItems: "flex-end"}}>
+	    <div className="button unit" style={{padding: "1em",
+						 display: "flex",
+						 flexDirection: "column",
+						 flexWrap: "wrap",
+						 alignContent: "space-between",
+						 justifyContent: "center"}}>
+		<div>
+		    <p>address: {data.address}</p>
+		    <p>access: {data.access}</p>
+		</div>
+		<div style={{width: "72px",
+			     height: "72px",
+			     borderRadius: "100% 100%",
+			     background: `url('${thumb}')`,
+			     backgroundSize: "cover"}}></div>
+	    </div>
+	    <button className="button" onClick={function(e) { pick(data.address) }}>{data.access.toUpperCase()}</button>
+	</div>
+    )
+}
+
 export default function TheZone() {
 
     let session = useContext(AuthContext)
     let viewerRef = useRef(null)
     let [loading, setLoading] = useState(true)
+    let [units, setUnits] = useState({})
     let [visible, setVisible] = useState({
 	B: true,
 	A: true,
@@ -65,18 +108,46 @@ export default function TheZone() {
 	setVisible({...visible, [target]: !visible[target]})
     }
 
+    async function fetchUnits() {
+	let resp = await fetch(`${API}/units`)
+	setUnits(await resp.json())
+    }
+
     useEffect(function () {
 	if (session) {
 	    setLoading(false)
 	}
     }, [session])
 
+    useEffect(function () {
+	if (! units.picked) {
+	    fetchUnits()
+	}
+    }, [])
+    
     if (loading) {
 	return <div>Loading...</div>
     }
     
     if (! session) {
         return <Navigate to={{ pathname: "/" }} />
+    }
+
+    if (! units.picked) {
+	return (
+	    <>
+		<p>Studyunit picker!</p>
+		<div style={{display: "flex"}}>
+		    {Object.entries(units)
+		     .filter(function([k, v]) {
+			 return ["rent", "free"].includes(k)
+		     })
+		     .map(function([k, v]) {
+			 return <Unit value={v} />
+		     })}
+		</div>
+	    </>
+	)
     }
 
     return (
@@ -96,7 +167,7 @@ export default function TheZone() {
 		<div style={{display: "flex", flexWrap: "wrap"}}>
 		    {visible.B &&
 		     <section className="container" style={{flexGrow: 1}}>
-			 <Viewer id="focusedB" dashes={style.color.mentor} width="500" height="500" />
+			 <Viewer id="focusedB" dashes={style.color.mentor} unit={units.picked} width="500" height="500" />
 		     </section>}
 		    
 		    {visible.A &&

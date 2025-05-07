@@ -82,6 +82,11 @@ button:focus-visible {
     font-weight: inherit;
 }
 
+.unit {
+    width: 256px;
+    height: 96px;
+}
+
 .mentor {
     background: #ff5556FF;
 }
@@ -109,6 +114,7 @@ button:focus-visible {
 
 #menu {
     width: 30%;
+    z-index: 1;
 }
 
 @media only screen and (max-width: 800px) {
