@@ -45,3 +45,7 @@ class F:
             return None, "Corrupted session data"
 
         return retrieved["address"], None
+
+    @staticmethod
+    def get_unit_rent_account():
+        return None

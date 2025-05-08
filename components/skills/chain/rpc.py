@@ -79,7 +79,6 @@ class RPC:
         self, fee_payer: Pubkey, mint: Pubkey
     ) -> typing.Tuple[VersionedTransaction, Keypair]:
         """?"""
-
         blockhash = self.client.get_latest_blockhash().value.blockhash
         cost = Token.get_min_balance_rent_for_exempt_for_account(self.client)
 
@@ -181,8 +180,21 @@ class RPC:
         txn = VersionedTransaction(msg, [NullSigner(fee_payer), authority])
         return txn
 
-    def transfer(self) -> typing.Any:
+    def transfer(self, sender: Keypair, receiver: Pubkey, lamports: int) -> typing.Any:
         """?"""
+
+        blockhash = self.client.get_latest_blockhash().value.blockhash
+        ixs = [
+            sysprog.transfer(
+                sysprog.TransferParams(
+                    from_pubkey=sender.pubkey(), to_pubkey=receiver, lamports=lamports
+                )
+            )
+        ]
+
+        msg = Message.new_with_blockhash(ixs, sender.pubkey(), blockhash)
+        txn = VersionedTransaction(msg, [sender])
+        return txn
 
 
 rpc = RPC.create(

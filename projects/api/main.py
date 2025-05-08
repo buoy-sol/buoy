@@ -18,11 +18,14 @@ from flask import Flask, Response, redirect, request as req
 from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
 from os.path import exists
+from solders.keypair import Keypair
 from solders.pubkey import Pubkey
+from solders.signature import Signature
 from types import SimpleNamespace as NS
 from urllib.parse import urlparse
 from werkzeug.utils import secure_filename
 
+from app.buoy import buoy
 from app.chain.rpc import rpc
 from app.db import dbm_open_bytes
 from app.rating import Rating
@@ -333,8 +336,48 @@ async def units_next():
             None,
         )
 
+        # ?
+        picked = None
+        _held = next(filter(F.where({"holder": user.address}), db["units"]), None)
+
+        if _held is not None:
+            held = Studyunit(**_held)
+            if held.free_at < int(time.time()):
+                picked = held.address
+
         return Response(
-            json.dumps({"free": next_free, "rent": next_rent, "picked": user.holding}),
+            json.dumps({"free": next_free, "rent": next_rent, "picked": picked}),
+            headers=headers.full,
+        )
+
+
+@api.route("/api/dev/units/<unit_id>/rent", methods=["GET", "OPTIONS"])
+async def get_unit_rent(unit_id: str):
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        _unit = next(filter(F.where({"address": unit_id}), db["units"]), None)
+
+        if _unit is None:
+            raise Exception(f"Unit {unit_id} not found!")
+
+        unit = Studyunit(**_unit)
+
+        if "rent" != unit.access:
+            raise Exception(f"This unit is free!")
+
+        if unit.free_at > int(time.time()):
+            remaining = int(time.time()) - unit.free_at
+            raise Exception(
+                f"Unit {unit_id} is currently reserved! Try again in {remaining}"
+            )
+
+        rent_lamports = 999_999  # temporarily hardcoded
+        buoy.fund_pair()
+
+        return Response(
+            json.dumps({"account": str(buoy.pair.pubkey()), "lamports": rent_lamports}),
             headers=headers.full,
         )
 
@@ -344,12 +387,45 @@ async def unit_pick():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address = "nil"  # temporary!
+    access_type: str = "free"
+    address: str = "nil"  # temporary!
+
+    sig_raw = req.json.get("sig", None)
+    unit_id = req.json.get("unit", None)
+
+    assert unit_id is not None
+
+    if sig_raw is not None:
+        access_type = "rent"
+        sig = Signature(base58.b58decode(sig_raw))
+        tx = rpc.client.get_transaction(sig, commitment="confirmed")
+
+        print(tx.value)  # @TODO: verify the transaction
+
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         _user = next(filter(F.where({"address": address}), db["users"].values()), None)
         assert _user is not None
 
-        db["users"][address]["holding"] = req.json.get("unit")
+        # @TODO assert unit is not already held by someone else
+        _unit = next(
+            filter(F.where({"address": unit_id, "access": access_type}), db["units"]),
+            None,
+        )
+        assert _unit is not None
+
+        unit_idx = db["units"].index(_unit)
+        unit = Studyunit(**_unit)
+
+        if sig_raw is None:
+            raters = []
+
+            rent_lamports = 999_999  # temporarily hardcoded
+            buoy.route_unit_rent(
+                rent_lamports, Pubkey.from_string(unit.contributor), raters
+            )
+
+        db["units"][unit_idx]["holder"] = address
+        # db["users"][address]["holding"] = req.json.get("unit")
 
     return Response("{}", headers=headers.full)
 
@@ -375,7 +451,6 @@ async def get_unit(unit_id: str, ext: str):
 
 @api.errorhandler(Exception)
 def errors(ex):
-    raise ex
     return Response(json.dumps(dict(failed=repr(ex))), status=500, headers=headers.cors)
 
 

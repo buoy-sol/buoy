@@ -82,6 +82,10 @@ button:focus-visible {
     font-weight: inherit;
 }
 
+.picker * {
+    margin: 1em;
+}
+
 .unit {
     width: 256px;
     height: 96px;

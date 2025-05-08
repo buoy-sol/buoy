@@ -58,6 +58,6 @@ class User:
                 continue
 
         if not any(adjusted):
-            return 1
+            return 0
 
         return sum(adjusted) / len(adjusted)

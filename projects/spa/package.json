@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@solana-program/system": "^0.7.0",
     "@solana/kit": "^2.1.0",
     "@solana/react": "^2.1.0",
     "@wallet-standard/core": "^1.1.1",

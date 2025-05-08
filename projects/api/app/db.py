@@ -5,8 +5,10 @@ import typing
 
 from dataclasses import asdict
 from contextlib import contextmanager
+from solders.keypair import Keypair
 
 from app.studyunit import Studyunit
+from app.buoy import vault
 
 DB_KEY = "lolwhatever"
 SYS_USR = "nil"
@@ -32,7 +34,7 @@ def dbm_open_bytes(path: str, mode: str) -> typing.Generator:
                     Studyunit(
                         **dict(
                             address="x1",
-                            contributor="nil",
+                            contributor=str(vault.pubkey()),  # HARDCODED
                             owner="nil",
                             holder=None,
                             access="free",
@@ -46,7 +48,7 @@ def dbm_open_bytes(path: str, mode: str) -> typing.Generator:
                     Studyunit(
                         **dict(
                             address="x2",
-                            contributor="nil",
+                            contributor=str(vault.pubkey()),  # HARDCODED
                             owner="nil",
                             holder=None,
                             access="rent",
@@ -67,7 +69,7 @@ def dbm_open_bytes(path: str, mode: str) -> typing.Generator:
                 },
                 {
                     "unit": "x2",
-                    "value": 4.5,
+                    "value": 9.5,
                     "contributor": "nil",
                     "timestamp": int(time.time()),
                 },
