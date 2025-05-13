@@ -111,7 +111,7 @@ button:focus-visible {
     flex-direction: row;
 }
 
-#the-zone .button {
+#the-zone .button, #tokens .button {
     min-width: 13em;
     margin: 7px;
 }

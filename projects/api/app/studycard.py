@@ -1,4 +1,4 @@
-"""everything surrounding Studyunit
+"""everything surrounding Studycard
 """
 
 import typing
@@ -9,13 +9,13 @@ from solders.pubkey import Pubkey
 
 
 @dataclass
-class Studyunit:
+class Studycard:
     """primary data entity in the system"""
 
     # address of the struct, on chain, if any
     address: Pubkey
 
-    # who had contributed the Studyunit
+    # who had contributed the Studycard
     contributor: Pubkey
 
     # actual IP owner
@@ -24,7 +24,10 @@ class Studyunit:
     # current holder
     holder: Pubkey
 
-    # unit access type
+    # a label for the card
+    name: str
+
+    # card access type
     access: typing.Literal["rent", "free"] = "free"
 
     # for how long it can be rented (seconds)
@@ -37,10 +40,16 @@ class Studyunit:
     rented_at: int = 0
 
     # filename->checksum pair
-    files: dict[str, str] = field(default_factory=dict)
+    media: dict[str, str] = field(default_factory=dict)
+
+    # media used as card front
+    front: list[str] = field(default_factory=lambda: [])
+
+    # media used as card back
+    back: list[str] = field(default_factory=lambda: [])
 
     @classmethod
-    def create(cls, *args: typing.Any) -> "Studyunit":
+    def create(cls, *args: typing.Any) -> "Studycard":
         """factory
 
         since: 0.0.1
@@ -50,3 +59,8 @@ class Studyunit:
     @property
     def free_at(self) -> int:
         return self.rented_at + self.inactive_period + self.rent_period
+
+    @property
+    def decks(self) -> list[str]:
+        """find and return IDs of decks this card is used in"""
+        return []

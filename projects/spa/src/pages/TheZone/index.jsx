@@ -1,7 +1,7 @@
 import bs58 from "bs58"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { AuthContext } from "../../contexts/AuthContext"
-import { WalletContext } from "../../contexts/WalletContext"
+import Cardteaser from "../../components/Cardteaser"
 import Canvas from "../../components/Canvas"
 import Viewer from "../../components/Viewer"
 import { API } from "../../utils/api"
@@ -56,7 +56,7 @@ function Menu() {
 			<button className="button" onClick={function() {toggle("MENU")}}>THE ZONE</button>
 		    </li>
 		    {[
-			"YOUR SALES",
+			"YOUR TOKENS",
 			"HELP & FAQ",
 			"SETINGS"
 		    ].map(function(e){
@@ -72,15 +72,59 @@ function Menu() {
     )
 }
 
+function Cardpicker(props) {
+    let { style, value: data } = props
+    
+    if (! data) {
+        return <p>No card</p>
+    }
+                                                                                                                                     
+    let wallets = useWallets()
+    let chosen = wallets[0] // @todo user has to make this choice
+
+    console.log(chosen.accounts)
+    let transactionSendingSigner = useWalletAccountTransactionSendingSigner(chosen.accounts[0], "solana:devnet")
+                                                                                                                                     
+    async function pick(card, accessType) {
+        let txSignature = null
+        if ("rent" == accessType) {
+            let rentForCardResp = await fetch(`${API}/cards/${card}/rent`)
+            let rentForCard = await rentForCardResp.json()
+                                                                                                                                     
+            // make the transaction
+            let txSignatureRaw = await transfer(transactionSendingSigner, rentForCard.account, rentForCard.lamports)
+            txSignature = bs58.encode(txSignatureRaw)
+        }
+                                                                                                                                     
+        console.log(["SIGNATURE ", txSignature])
+        await fetch(
+            `${API}/cards/pick`,
+            {
+                method: "POST",
+                body: JSON.stringify({card: card, sig: txSignature}),
+                headers: {"Content-type": "application/json"}
+            }
+        )
+    }
+
+    return (
+	<>
+	    <Cardteaser value={props.value} />
+	    <button className="button" onClick={function(e) { pick(data.address, data.access) }}>{data.access.toUpperCase()}</button>
+	</>
+    )
+	    
+}
+
 async function transfer(sender, recipient, lamports) {
-    let rpc = createSolanaRpc("https://api.devnet.solana.com")
+    let rpc = createSolanaRpc(SOLANARPC)
     try {
 	let ix = getTransferSolInstruction({
 	    amount: lamports,
-            source: sender,
-            destination: "2CKsECMaCbQFTLtT9iPC31NcrNrk5NMfB78yGBgQ4nYU",
-        })
-
+	    source: sender,
+	    destination: "2CKsECMaCbQFTLtT9iPC31NcrNrk5NMfB78yGBgQ4nYU",
+	})
+	
 	let {value: latestBlockhash} = await rpc.getLatestBlockhash({commitment: "confirmed"}).send()
 	let msg = pipe(
 	    createTransactionMessage({ version: 0 }),
@@ -95,80 +139,12 @@ async function transfer(sender, recipient, lamports) {
     }
 }
 
-function Unit({wallet, style, value: data}) {
-    if (! data) {
-	return <p>No unit</p>
-    }
-
-    let files = Object.entries(data.files)
-    let [thumb, setThumb] = useState(null)
-
-    if (! thumb && files.some(Boolean)) {
-	setThumb(files[0][0])
-    }
-
-    let [selected, setSelected] = useContext(WalletContext)
-    let wallets = useWallets()
-    let chosen = wallets[0] // @todo user has to make this choice
-
-    let transactionSendingSigner = useWalletAccountTransactionSendingSigner(chosen.accounts[0], "solana:devnet")
-
-    async function pick(unit, accessType) {
-	let txSignature = null
-	if ("rent" == accessType) {
-	    let rentForUnitResp = await fetch(`${API}/units/${unit}/rent`)
-	    let rentForUnit = await rentForUnitResp.json()
-
-	    // make the transaction
-	    let txSignatureRaw = await transfer(transactionSendingSigner, rentForUnit.account, rentForUnit.lamports)
-	    txSignature = bs58.encode(txSignatureRaw)
-	}
-
-	console.log(["SIGNATURE ", txSignature])
-	await fetch(
-	    `${API}/units/pick`,
-	    {
-		method: "POST",
-		body: JSON.stringify({unit: unit, sig: txSignature}),
-		headers: {"Content-type": "application/json"}
-	    }
-	)
-    }
-
-    return (
-	<div className="picker"
-	     style={{
-		 display: "flex",
-		 flexDirection: "column",
-		 alignItems: "flex-end"
-	     }}>
-	    <div className="button unit" style={{padding: "1em",
-						 display: "flex",
-						 flexDirection: "column",
-						 flexWrap: "wrap",
-						 alignContent: "space-between",
-						 justifyContent: "center"}}>
-		<div>
-		    <p>address: {data.address}</p>
-		    <p>access: {data.access}</p>
-		</div>
-		<div style={{width: "72px",
-			     height: "72px",
-			     borderRadius: "100% 100%",
-			     background: `url('${thumb}')`,
-			     backgroundSize: "cover"}}></div>
-	    </div>
-	    <button className="button" onClick={function(e) { pick(data.address, data.access) }}>{data.access.toUpperCase()}</button>
-	</div>
-    )
-}
-
 export default function TheZone() {
 
     let session = useContext(AuthContext)
     let viewerRef = useRef(null)
     let [loading, setLoading] = useState(true)
-    let [units, setUnits] = useState({})
+    let [cards, setCards] = useState({})
     let [visible, setVisible] = useState({
 	B: true,
 	A: true,
@@ -180,9 +156,9 @@ export default function TheZone() {
 	setVisible({...visible, [target]: !visible[target]})
     }
 
-    async function fetchUnits() {
-	let resp = await fetch(`${API}/units`)
-	setUnits(await resp.json())
+    async function fetchCards() {
+	let resp = await fetch(`${API}/cards/choices`, {credentials: "include"})
+	setCards(await resp.json())
     }
 
     useEffect(function () {
@@ -192,8 +168,8 @@ export default function TheZone() {
     }, [session])
 
     useEffect(function () {
-	if (! units.picked) {
-	    fetchUnits()
+	if (! cards.picked) {
+	    fetchCards()
 	}
     }, [])
     
@@ -205,17 +181,17 @@ export default function TheZone() {
         return <Navigate to={{ pathname: "/" }} />
     }
 
-    if (! units.picked) {
+    if (! cards.picked) {
 	return (
 	    <>
-		<p>Studyunit picker!</p>
+		<p>Studycard picker!</p>
 		<div style={{display: "flex"}}>
-		    {Object.entries(units)
+		    {Object.entries(cards)
 		     .filter(function([k, v]) {
 			 return ["rent", "free"].includes(k)
 		     })
 		     .map(function([k, v]) {
-			 return <Unit value={v} />
+			 return <Cardpicker value={v} />
 		     })}
 		</div>
 	    </>
@@ -240,7 +216,7 @@ export default function TheZone() {
 		<div style={{display: "flex", flexWrap: "wrap"}}>
 		    {(!visible.RATE) && visible.B &&
 		     <section className="container" style={{flexGrow: 1}}>
-			 <Viewer id="focusedB" dashes={style.color.mentor} unit={units.picked} width="500" height="500" />
+			 <Viewer id="focusedB" dashes={style.color.mentor} card={cards.picked} width="500" height="500" />
 		     </section>}
 		    
 		    {(!visible.RATE) && visible.A &&

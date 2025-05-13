@@ -29,25 +29,25 @@ with describe("user"):
 
                 sample_ratings = [
                     {
-                        "unit": "x1",
+                        "card": "x1",
                         "value": 5.5,
                         "contributor": user.address,
                         "timestamp": int(time.time()),
                     },
                     {
-                        "unit": "x2",
+                        "card": "x2",
                         "value": 4.5,
                         "contributor": user.address,
                         "timestamp": int(time.time()),
                     },
                     {
-                        "unit": "x1",
+                        "card": "x1",
                         "value": 7.5,
                         "contributor": "user-A",
                         "timestamp": int(time.time()),
                     },
                     {
-                        "unit": "x1",
+                        "card": "x1",
                         "value": 8.5,
                         "contributor": "user-B",
                         "timestamp": int(time.time()),
@@ -61,11 +61,11 @@ with describe("user"):
                     )
                 )
 
-                user_rated_units = list(map(operator.attrgetter("unit"), ratings))
+                user_rated_cards = list(map(operator.attrgetter("card"), ratings))
 
                 relevant = list(
                     filter(
-                        lambda e: e.unit in user_rated_units
+                        lambda e: e.card in user_rated_cards
                         and e.contributor != user.address,
                         map(Rating.from_dict, sample_ratings),
                     )

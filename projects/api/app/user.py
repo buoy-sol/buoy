@@ -9,8 +9,8 @@ class User:
     # identity
     address: Pubkey
 
-    # the Studyunit the user is currently holding
-    holding: Pubkey
+    # the Studycard the user is currently holding
+    holding: Pubkey | None
 
     @classmethod
     def create(cls):
@@ -24,12 +24,12 @@ class User:
         by_others = {}
 
         for rate in rates_by_user:
-            by_user.setdefault(rate.unit, [])
-            by_user[rate.unit].append(rate.value)
+            by_user.setdefault(rate.card, [])
+            by_user[rate.card].append(rate.value)
 
         for rate in rates_by_others:
-            by_others.setdefault(rate.unit, [])
-            by_others[rate.unit].append(rate.value)
+            by_others.setdefault(rate.card, [])
+            by_others[rate.card].append(rate.value)
 
         for k, rates in by_user.items():
             by_user[k] = sum(rates) / len(rates)

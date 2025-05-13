@@ -7,8 +7,8 @@ class Rating(typing.NamedTuple):
     # who made the rating
     contributor: Pubkey
 
-    # unit reference
-    unit: Pubkey
+    # card reference
+    card: Pubkey
 
     # literally just 1 to 10
     value: float

@@ -1,9 +1,12 @@
 import math
 import os
+import time
 import typing
 
 from dataclasses import dataclass, field
+from collections import deque
 from os.path import exists
+from solana.constants import LAMPORTS_PER_SOL
 from solana.rpc.types import TxOpts
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
@@ -18,7 +21,15 @@ with open(VAULT_PATH, "r") as f:
 
 assert vault is not None
 
-rpc.client.request_airdrop(vault.pubkey(), 999_999_999)
+vault_balance: int = rpc.client.get_balance(vault.pubkey()).value
+vault_balance_SOL: float = vault_balance / LAMPORTS_PER_SOL
+
+print(["Vault address", vault.pubkey()])
+print(["Vault balance SOL", vault_balance_SOL])
+
+if 0.2 > vault_balance_SOL:
+    time.sleep(2)
+    print(rpc.client.request_airdrop(vault.pubkey(), 1).value)
 
 
 class Distribution(typing.NamedTuple):
@@ -68,7 +79,7 @@ class Buoy:
     def cut(self, percent: int | float, of: int) -> int:
         return math.floor(percent * of / 100)
 
-    def route_unit_rent(
+    def route_card_rent(
         self,
         lamports: int,
         contributor: Pubkey,

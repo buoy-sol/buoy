@@ -2,11 +2,13 @@
 
 """
 
+import spl.token.instructions as tokenprog
+import time
 import typing
 
+from contextlib import contextmanager
 from dataclasses import dataclass
-import spl.token.instructions as tokenprog
-
+from solana.exceptions import SolanaRpcException
 from solana.rpc.api import Client
 from solana.rpc.types import TokenAccountOpts
 from solders.keypair import Keypair
@@ -102,6 +104,12 @@ class RPC:
                     program_id=TOKEN_2022_PROGRAM_ID,
                 )
             ),
+            tokenprog.create_associated_token_account(
+                payer=fee_payer,
+                owner=fee_payer,
+                mint=mint,
+                token_program_id=TOKEN_2022_PROGRAM_ID,
+            ),
         ]
 
         msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
@@ -152,7 +160,16 @@ class RPC:
                     decimals=0,
                     signers=[authority.pubkey()],
                 )
-            )
+            ),
+            tokenprog.freeze_account(
+                tokenprog.FreezeAccountParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    account=to,
+                    mint=mint,
+                    authority=authority.pubkey(),
+                    multi_signers=[authority.pubkey()],
+                )
+            ),
         ]
 
         msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
@@ -196,7 +213,21 @@ class RPC:
         txn = VersionedTransaction(msg, [sender])
         return txn
 
+    @contextmanager
+    def retry(self, after: float = 2.0):
+        tries = 2
 
-rpc = RPC.create(
-    NetLoc("http://127.0.0.1:8899")
-)  # "https://api.devnet.solana.com"))  # singleton
+        for attempt in range(1, tries):
+            try:
+                yield
+                return
+            except Exception as ex:
+                if tries == attempt:
+                    raise
+
+                print(f"Failed {ex}, waiting (blocking) {after} to retry")
+                time.sleep(after)
+
+
+rpc = RPC.create(NetLoc("https://api.devnet.solana.com"))  # singleton
+# NetLoc("http://127.0.0.1:8899")

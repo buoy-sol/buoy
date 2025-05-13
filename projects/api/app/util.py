@@ -1,3 +1,4 @@
+import hashlib
 import typing
 
 SESS_KEY = "solana:session"
@@ -30,9 +31,9 @@ class F:
         return inner
 
     @staticmethod
-    def resolve_address_from_cookies(
+    def resolve_session_from_cookies(
         cookies: dict, mem: object
-    ) -> typing.Tuple[str | None, ErrorResult]:
+    ) -> typing.Tuple[dict | None, ErrorResult]:
         if SESS_KEY not in cookies:
             return None, "Missing credentials in request"
 
@@ -41,11 +42,30 @@ class F:
         if retrieved is None:
             return None, "Unathorized"
 
+        return retrieved
+
+    @staticmethod
+    def resolve_address_from_cookies(
+        cookies: dict, mem: object
+    ) -> typing.Tuple[str | None, ErrorResult]:
+        retrieved = F.resolve_session_from_cookies(cookies, mem)
         if "address" not in retrieved:
             return None, "Corrupted session data"
 
         return retrieved["address"], None
 
     @staticmethod
-    def get_unit_rent_account():
+    def get_card_rent_account():
         return None
+
+    @staticmethod
+    def md5sum(filename: str) -> str:
+        result = hashlib.md5()
+
+        with open(filename, "rb") as f:
+            chunk = f.read(8192)
+            while chunk:
+                result.update(chunk)
+                chunk = f.read(8192)
+
+        return result.hexdigest()

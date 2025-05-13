@@ -1,7 +1,7 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import Landing from '../pages/Landing';
-import TheZone from '../pages/TheZone';
-
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import Landing from '../pages/Landing'
+import TheZone from '../pages/TheZone'
+import Tokens from '../pages/Tokens'
 
 const routes = createBrowserRouter([
     {
@@ -11,6 +11,10 @@ const routes = createBrowserRouter([
     {
         path: "/zone",
         element: <TheZone />
+    },
+    {
+	path: "/tokens",
+	element: <Tokens />
     }
 ]);
 

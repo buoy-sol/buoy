@@ -14,7 +14,7 @@ from solana.rpc.commitment import Confirmed
 from solana.rpc.types import TxOpts
 from solders.keypair import Keypair
 
-from app.chain.rpc import rpc  # pylint: disable=import-error
+from app.chain.rpc import RPC, NetLoc  # pylint: disable=import-error
 
 DEVNET_TEST_KEYPAIR = None
 KEYPATH = f"""{os.environ["HOME"]}/.config/solana/id.json"""
@@ -25,6 +25,8 @@ with open(KEYPATH, "r") as f:
     DEVNET_TEST_KEYPAIR = json.loads(f.read())
 
 assert DEVNET_TEST_KEYPAIR is not None
+
+rpc = RPC.create(NetLoc("http://127.0.0.1:8899"))
 
 with describe("rpc handler "):
     with context("tokens"):
@@ -68,21 +70,6 @@ with describe("rpc handler "):
             res_b = rpc.client.send_transaction(txn_account, txn_opts)
 
             # --C
-            txn_associated_token_account = rpc.create_associated_token_account(
-                end_user.pubkey(), mint.pubkey()
-            )
-            sig_idx = txn_associated_token_account.message.account_keys.index(
-                end_user.pubkey()
-            )
-            sigs = txn_associated_token_account.signatures
-            sigs[sig_idx] = end_user.sign_message(
-                bytes(txn_associated_token_account.message)
-            )
-            txn_associated_token_account.signatures = sigs
-
-            res_c = rpc.client.send_transaction(txn_associated_token_account, txn_opts)
-
-            # --D
             txn_mint = rpc.mint_to(
                 token_account.pubkey(), end_user.pubkey(), mint.pubkey(), mint_control
             )
@@ -93,18 +80,11 @@ with describe("rpc handler "):
 
             res_d = rpc.client.send_transaction(txn_mint, txn_opts)
 
-            # --E
-            txn_freeze = rpc.freeze_token_account(
-                token_account.pubkey(), end_user.pubkey(), mint.pubkey(), mint_control
-            )
-            sig_idx = txn_freeze.message.account_keys.index(end_user.pubkey())
-            sigs = txn_freeze.signatures
-            sigs[sig_idx] = end_user.sign_message(bytes(txn_freeze.message))
-            txn_freeze.signatures = sigs
-
-            res_e = rpc.client.send_transaction(txn_freeze, txn_opts)
-
             tokens = rpc.get_token_accounts(end_user.pubkey(), "confirmed")
             token_keys = list(map(operator.attrgetter("pubkey"), tokens.value))
 
             expect(token_keys).to(contain(token_account.pubkey()))
+
+        with it("can freeze and thaw tokens"):
+            # freeze a token in user X's possesion
+            expect(1).to(equal(2))
