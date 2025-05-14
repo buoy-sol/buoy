@@ -80,7 +80,6 @@ function Cardpicker(props) {
     let wallets = useWallets()
     let chosen = wallets[0] // @todo user has to make this choice
 
-    console.log(chosen.accounts)
     let transactionSendingSigner = useWalletAccountTransactionSendingSigner(chosen.accounts[0], "solana:devnet")
                                                                                                                                      
     async function pick(card, accessType) {
@@ -94,7 +93,6 @@ function Cardpicker(props) {
             txSignature = bs58.encode(txSignatureRaw)
         }
                                                                                                                                      
-        console.log(["SIGNATURE ", txSignature])
         await fetch(
             `${API}/cards/pick`,
             {

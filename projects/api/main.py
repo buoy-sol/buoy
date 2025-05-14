@@ -14,7 +14,7 @@ import typing
 import uvicorn
 
 from asgiref.wsgi import WsgiToAsgi
-from base64 import b64encode
+from base64 import b64encode, b64decode
 from collections import deque
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
@@ -518,17 +518,13 @@ async def create_token_mint_account_tx():
         Pubkey.from_string(address), vault.pubkey()
     )
 
-    return Response(b64encode(bytes(txn_mint_account)), headers=headers.cors)
-
-
-@api.route("/api/dev/token/account/mint", methods=["POST", "OPTIONS"])
-async def create_token_mint_account():
-    if "OPTIONS" == req.method:
-        return Response("", headers=headers.cors)
-
-    txn = VersionedTransaction.from_json(req.json("txn"))
     return Response(
-        json.dumps(rpc.client.send_transaction(txn, txn_opts).value),
+        json.dumps(
+            {
+                "txn": b64encode(bytes(txn_mint_account)).decode("utf-8"),
+                "mint_account": str(mint_account.pubkey()),
+            }
+        ),
         headers=headers.full,
     )
 
@@ -547,24 +543,16 @@ async def create_token_account_tx():
     assert mint_account_pubkey is not None
 
     txn_account, token_account = rpc.create_token_account(
-        Pubkey.from_string(address), mint_account_pubkey
+        Pubkey.from_string(address), Pubkey.from_string(mint_account_pubkey)
     )
 
-    return Response(b64encode(bytes(txn_account)), headers=headers.cors)
-
-
-@api.route("/api/dev/token/account", methods=["POST", "OPTIONS"])
-async def create_token_account():
-    """?
-
-    @todo once completed, unify with create_mint_account - it's identical code
-    """
-    if "OPTIONS" == req.method:
-        return Response("", headers=headers.cors)
-
-    txn = VersionedTransaction.from_json(req.json("txn"))
     return Response(
-        json.dumps(rpc.client.send_transaction(txn, txn_opts).value),
+        json.dumps(
+            {
+                "txn": b64encode(bytes(txn_account)).decode("utf-8"),
+                "token_account": str(token_account.pubkey()),
+            }
+        ),
         headers=headers.full,
     )
 
@@ -579,34 +567,21 @@ async def mint_tx():
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
 
-    token_account_pubkey = req.json.get("token_account")
+    token_account_pubkey = req.args.get("token_account")
     assert token_account_pubkey is not None
 
-    mint_account_pubkey = req.json.get("mint_account")
+    mint_account_pubkey = req.args.get("mint_account")
     assert mint_account_pubkey is not None
 
     txn_mint = rpc.mint_to(
-        token_account_pubkey,
+        Pubkey.from_string(token_account_pubkey),
         Pubkey.from_string(address),
-        mint_account_pubkey,
+        Pubkey.from_string(mint_account_pubkey),
         vault,
     )
 
-    return Response(b64encode(bytes(txn_mint)), headers=headers.cors)
-
-
-@api.route("/api/dev/token/mint", methods=["POST", "OPTIONS"])
-async def mint():
-    """?
-
-    @todo once completed, unify with create_mint_account - it's identical code
-    """
-    if "OPTIONS" == req.method:
-        return Response("", headers=headers.cors)
-
-    txn = VersionedTransaction.from_json(req.json("txn"))
     return Response(
-        json.dumps(rpc.client.send_transaction(txn, txn_opts).value),
+        json.dumps({"txn": b64encode(bytes(txn_mint)).decode("utf-8")}),
         headers=headers.full,
     )
 

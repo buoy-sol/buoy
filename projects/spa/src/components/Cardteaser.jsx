@@ -2,8 +2,6 @@ import { useContext, useEffect, useState } from "react"
 import { API } from "../utils/api"
 
 export default function Cardteaser({style, value: data}) {                                                                                                                                     
-
-    console.log(data)
     let files = Object.entries(data.media)
     let [thumb, setThumb] = useState(null)
                                                                                                                                      

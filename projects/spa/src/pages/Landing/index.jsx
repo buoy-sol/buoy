@@ -156,7 +156,7 @@ export default function Landing() {
     return (
         <>
             <div className="landing" style={{textTransform:"uppercase"}}>
-		<h1>welcome to [name-is-wip] <b>{session && truncated(session.address)}</b></h1>
+		<h1>welcome to buoy <b>{session && truncated(session.address)}</b></h1>
 		<h2>the place to be!</h2>
 		<a onClick={function(e){
 		       e.preventDefault()

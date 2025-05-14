@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import bs58 from "bs58"
-import { getBase64Encoder, getTransactionDecoder, compileTransaction } from "@solana/kit"
+import { getBase64EncodedWireTransaction, getTransactionDecoder, compileTransaction } from "@solana/kit"
 
 import { useSignTransaction } from "@solana/react"
 import { useWallets, getWalletAccountFeature } from "@wallet-standard/react-core"
@@ -84,29 +84,50 @@ export default function Tokens() {
 	setCreated(await storedCardResp.json())
     }
 
-    async function mintToken() {
-	// create mint account
-	let txResp = await fetch(`${API}/token/account/mint/tx`, {credentials: "include"})
-	let txBase64 = await txResp.text()
+    async function sign(txBase64) {
 	let txBytes = Uint8Array.from(atob(txBase64), function(c) {
 	    return c.charCodeAt(0)
 	})
 
-	let signed = await signTransaction({transaction: txBytes})
-	// ?
-	return
+	let signature = await signTransaction({transaction: txBytes})
+	let signedTx = String.fromCharCode.apply(null, signature.signedTransaction)
+	let signedTxBase64 = btoa(signedTx)
+
+	return signature.SignedTransaction
+    }
+    async function mintToken() {
+	let txResp
+	let txBase64
+	let txData
 	
-	a = await fetch(`${API}/token/account/mint`, {method: "POST"})
-	
+	// create mint account
+	txResp = await fetch(
+	    `${API}/token/account/mint/tx`,
+	    {credentials: "include"}
+	)
+	txData = await txResp.json()
+	let mintAccount = txData.mint_account
+
+	await sign(txData.txn)
+
 	// create token account
-	tx = await fetch(`${API}/token/account/tx`)
-	a = await fetch(`${API}/token/account`, {method: "POST"})
+	txResp = await fetch(
+	    `${API}/token/account/tx?mint_account=${mintAccount}`,
+	    {credentials: "include"}
+	)
+	txData = await txResp.json()
+	let tokenAccount = txData.token_account
+
+	await sign(txData.txn)
     
 	// mint & freeze
-	a = await fetch(`${API}/token/mint/tx`, {method: "POST"})
-	a = await fetch(`${API}/token/mint`, {method: "POST"})
-	
-	console.log(["???"])
+	txResp = await fetch(
+	    `${API}/token/mint/tx?mint_account=${mintAccount}&token_account=${tokenAccount}`,
+	    {credentials: "include"}
+	)
+	txData = await txResp.json()
+
+	console.log(await sign(txData.txn))
     }
     
     function mediaChange(e, idx) {
