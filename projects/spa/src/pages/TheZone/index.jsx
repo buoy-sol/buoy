@@ -19,9 +19,7 @@ import {
     signAndSendTransactionMessageWithSigners,
 } from "@solana/kit"
 
-import {
-    useWalletAccountTransactionSendingSigner
-} from "@solana/react"
+import { useWalletAccountTransactionSendingSigner } from "@solana/react"
 
 import { getTransferSolInstruction } from "@solana-program/system"
 

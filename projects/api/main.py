@@ -14,6 +14,7 @@ import typing
 import uvicorn
 
 from asgiref.wsgi import WsgiToAsgi
+from base64 import b64encode
 from collections import deque
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
@@ -26,7 +27,7 @@ from solana.rpc.types import TxOpts
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.signature import Signature
-from solders import VersionedTransaction
+from solders.transaction import VersionedTransaction
 from spl.token._layouts import ACCOUNT_LAYOUT, MINT_LAYOUT
 from spl.token.constants import TOKEN_2022_PROGRAM_ID
 from types import SimpleNamespace as NS
@@ -262,8 +263,6 @@ async def card_store() -> CardAddress:
             )
         )
 
-        print(req.form, req.files)
-
         front = req.form.get("media_front")
         back = req.form.get("media_back")
 
@@ -283,7 +282,6 @@ async def card_store() -> CardAddress:
             f.save(join(DATADIR, filename))
             card.media[f.filename] = filename
 
-        print(card.media)
         # pretend its multiple files
         if front is not None:
             card.front = [card.media[front]]
@@ -506,7 +504,7 @@ txn_opts = TxOpts(
 )
 
 
-@api.route("/api/dev/token/account/mint/tx", methods=["POST", "OPTIONS"])
+@api.route("/api/dev/token/account/mint/tx", methods=["GET", "OPTIONS"])
 async def create_token_mint_account_tx():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
@@ -520,7 +518,7 @@ async def create_token_mint_account_tx():
         Pubkey.from_string(address), vault.pubkey()
     )
 
-    return txn_mint_account.to_json()
+    return Response(b64encode(bytes(txn_mint_account)), headers=headers.cors)
 
 
 @api.route("/api/dev/token/account/mint", methods=["POST", "OPTIONS"])
@@ -535,7 +533,7 @@ async def create_token_mint_account():
     )
 
 
-@api.route("/api/dev/token/account/tx", methods=["POST", "OPTIONS"])
+@api.route("/api/dev/token/account/tx", methods=["GET", "OPTIONS"])
 async def create_token_account_tx():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
@@ -545,11 +543,14 @@ async def create_token_account_tx():
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
 
+    mint_account_pubkey = req.args.get("mint_account")
+    assert mint_account_pubkey is not None
+
     txn_account, token_account = rpc.create_token_account(
-        Pubkey.from_string(address), mint_account.pubkey()
+        Pubkey.from_string(address), mint_account_pubkey
     )
 
-    return txn_account.to_json()
+    return Response(b64encode(bytes(txn_account)), headers=headers.cors)
 
 
 @api.route("/api/dev/token/account", methods=["POST", "OPTIONS"])
@@ -568,7 +569,7 @@ async def create_token_account():
     )
 
 
-@api.route("/api/dev/token/mint/tx", methods=["POST", "OPTIONS"])
+@api.route("/api/dev/token/mint/tx", methods=["GET", "OPTIONS"])
 async def mint_tx():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
@@ -578,14 +579,20 @@ async def mint_tx():
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
 
+    token_account_pubkey = req.json.get("token_account")
+    assert token_account_pubkey is not None
+
+    mint_account_pubkey = req.json.get("mint_account")
+    assert mint_account_pubkey is not None
+
     txn_mint = rpc.mint_to(
-        token_account.pubkey(),
+        token_account_pubkey,
         Pubkey.from_string(address),
-        mint_account.pubkey(),
+        mint_account_pubkey,
         vault,
     )
 
-    return txn_mint.to_json()
+    return Response(b64encode(bytes(txn_mint)), headers=headers.cors)
 
 
 @api.route("/api/dev/token/mint", methods=["POST", "OPTIONS"])

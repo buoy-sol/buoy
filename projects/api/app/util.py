@@ -42,13 +42,17 @@ class F:
         if retrieved is None:
             return None, "Unathorized"
 
-        return retrieved
+        return retrieved, None
 
     @staticmethod
     def resolve_address_from_cookies(
         cookies: dict, mem: object
     ) -> typing.Tuple[str | None, ErrorResult]:
-        retrieved = F.resolve_session_from_cookies(cookies, mem)
+        retrieved, err = F.resolve_session_from_cookies(cookies, mem)
+
+        if err is not None:
+            return None, err
+
         if "address" not in retrieved:
             return None, "Corrupted session data"
 

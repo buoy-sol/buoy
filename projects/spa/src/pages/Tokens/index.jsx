@@ -1,8 +1,14 @@
 import { createContext, useContext, useEffect, useState } from "react"
+import bs58 from "bs58"
+import { getBase64Encoder, getTransactionDecoder, compileTransaction } from "@solana/kit"
+
+import { useSignTransaction } from "@solana/react"
+import { useWallets, getWalletAccountFeature } from "@wallet-standard/react-core"
+import { signTransaction } from "@solana/transactions"
+
 import Cardteaser from "../../components/Cardteaser"
 import { API } from "../../utils/api"
 import style from "../../utils/style"
-import { useWallets } from "@wallet-standard/react-core"
 
 const VisibleContext = createContext({
     B: true,
@@ -61,7 +67,9 @@ export default function Tokens() {
 
     let wallets = useWallets()
     let chosen = wallets[0] // @todo user has to make this choice
-    
+    let signTransaction = useSignTransaction(chosen.accounts[0], "solana:devnet")
+    // let signer = useWalletAccountTransactionSigner(chosen.accounts[0], "solana:devnet")
+
     async function fetchCards() {
 	let cardsResp = await fetch(`${API}/cards`)
 	setCards(await cardsResp.json())
@@ -78,20 +86,25 @@ export default function Tokens() {
 
     async function mintToken() {
 	// create mint account
-	await fetch(`${API}/token/account/mint/tx`, {method; "POST"})
-	await fetch(`${API}/token/account/mint`, {method: "POST"})
+	let txResp = await fetch(`${API}/token/account/mint/tx`, {credentials: "include"})
+	let txBase64 = await txResp.text()
+	let txBytes = Uint8Array.from(atob(txBase64), function(c) {
+	    return c.charCodeAt(0)
+	})
 
-	// create token account
-	await fetch(`${API}/token/account/tx`, {method: "POST"})
-	await fetch(`${API}/token/account`, {method: "POST"})
+	let signed = await signTransaction({transaction: txBytes})
+	// ?
+	return
 	
-        // create associated token account
-	await fetch(`${API}/token/account/associated/tx`, {method: "POST"})
-	await fetch(`${API}/token/account/associated`, {method: "POST"})
+	a = await fetch(`${API}/token/account/mint`, {method: "POST"})
+	
+	// create token account
+	tx = await fetch(`${API}/token/account/tx`)
+	a = await fetch(`${API}/token/account`, {method: "POST"})
     
 	// mint & freeze
-	await fetch(`${API}/token/mint/tx`, {method: "POST"})
-	await fetch(`${API}/token/mint`, {method: "POST"})
+	a = await fetch(`${API}/token/mint/tx`, {method: "POST"})
+	a = await fetch(`${API}/token/mint`, {method: "POST"})
 	
 	console.log(["???"])
     }
@@ -132,7 +145,7 @@ export default function Tokens() {
 			return (
 			    <>
 				{!card.spl &&
-				 <button className="button" onClick={getMintAccountTx}>MINT TOKEN</button>
+				 <button className="button" onClick={mintToken}>MINT TOKEN</button>
 				}
 				<Cardteaser style={{maxWidth: "0px"}} value={card} />
 			    </>
