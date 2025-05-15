@@ -85,7 +85,7 @@ function Cardpicker(props) {
     async function pick(cardIdentifier, accessType) {
         let txSignature = null
         if ("rent" == accessType) {
-            let rentForCardResp = await fetch(`${API}/cards/${card}/rent`)
+            let rentForCardResp = await fetch(`${API}/cards/${cardIdentifier}/rent`)
             let rentForCard = await rentForCardResp.json()
                                                                                                                                      
             // make the transaction
@@ -114,12 +114,12 @@ function Cardpicker(props) {
 }
 
 async function transfer(sender, recipient, lamports) {
-    let rpc = createSolanaRpc(SOLANARPC)
+    let rpc = createSolanaRpc("https://api.devnet.solana.com")
     try {
 	let ix = getTransferSolInstruction({
 	    amount: lamports,
 	    source: sender,
-	    destination: "2CKsECMaCbQFTLtT9iPC31NcrNrk5NMfB78yGBgQ4nYU",
+	    destination: recipient,
 	})
 	
 	let {value: latestBlockhash} = await rpc.getLatestBlockhash({commitment: "confirmed"}).send()

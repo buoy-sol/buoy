@@ -167,12 +167,16 @@ export default function Tokens() {
 		<Menu style={{width: "16%"}} />
 		<div style={{width: "32%"}}>
 		    {cards.some(Boolean) && cards.map(function(card) {
+			let explorer = `https://explorer.solana.com/address/${card.address}?cluster=devnet`
 			return (
 			    <>
 				{!card.spl &&
 				 <button className="button" onClick={function(e) {
 					     mintToken(card.identifier)
 					 }}>MINT TOKEN</button>
+				}
+				{card.spl &&
+				 <a target="_blank" href={explorer}>see on chain &#x2197;</a>
 				}
 				<Cardteaser style={{maxWidth: "0px"}} value={card} />
 			    </>

@@ -440,7 +440,9 @@ async def card_pick():
     if sig_raw is not None:
         access_type = "rent"
         sig = Signature(base58.b58decode(sig_raw))
-        tx = rpc.client.get_transaction(sig, commitment="confirmed")
+        tx = rpc.client.get_transaction(
+            sig, commitment="confirmed", max_supported_transaction_version=0
+        )
 
         print(tx.value)  # @TODO: verify the transaction
 
@@ -460,13 +462,12 @@ async def card_pick():
         card_idx = db["cards"].index(_card)
         card = Studycard.create(**_card)
 
-        if sig_raw is None:
-            raters = []
+        raters = []
 
-            rent_lamports = 999_999  # temporarily hardcoded
-            buoy.route_card_rent(
-                rent_lamports, Pubkey.from_string(card.contributor), raters
-            )
+        rent_lamports = 999_999  # temporarily hardcoded
+        buoy.route_card_rent(
+            rent_lamports, Pubkey.from_string(card.contributor), raters
+        )
 
         db["cards"][card_idx]["holder"] = address
         db["users"][address]["holding"] = card_id
