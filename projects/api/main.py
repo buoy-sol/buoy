@@ -271,7 +271,7 @@ async def card_store() -> CardAddress:
         form.pop("media_front", None)
         form.pop("media_back", None)
 
-        card = Studycard(**form)
+        card = Studycard.create(**form)
 
         for key in req.files:
             if "" == key:
@@ -300,7 +300,7 @@ async def card_store() -> CardAddress:
 
         db["cards"].append(asdict(card))
 
-        return card.address
+        return Response(json.dumps(asdict(card)), headers=headers.full)
 
 
 @api.route("/api/dev/cards/media/<filename>", methods=["GET", "OPTIONS"])
@@ -359,7 +359,7 @@ async def cards_next():
         # find next where access: rent and rating > user_skill
         next_rent = next(
             filter(
-                lambda e: rated.get(e["address"], 0) >= user_skill,
+                lambda e: rated.get(e["identifier"], 0) >= user_skill,
                 filter(F.where({"access": "rent"}), db["cards"]),
             ),
             None,
@@ -368,7 +368,7 @@ async def cards_next():
         # find next where access: free and rating > user_skill
         next_free = next(
             filter(
-                lambda e: rated.get(e["address"], 0) >= user_skill,
+                lambda e: rated.get(e["identifier"], 0) >= user_skill,
                 filter(F.where({"access": "free"}), db["cards"]),
             ),
             None,
@@ -379,7 +379,7 @@ async def cards_next():
         _held = next(filter(F.where({"holder": user.address}), db["cards"]), None)
 
         if _held is not None:
-            held = Studycard(**_held)
+            held = Studycard.create(**_held)
             if held.free_at < int(time.time()):
                 picked = held.address
 
@@ -395,12 +395,12 @@ async def get_card_rent(card_id: str):
         return Response("", headers=headers.cors)
 
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
-        _card = next(filter(F.where({"address": card_id}), db["cards"]), None)
+        _card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
 
         if _card is None:
             raise Exception(f"Card {card_id} not found!")
 
-        card = Studycard(**_card)
+        card = Studycard.create(**_card)
 
         if "rent" != card.access:
             raise Exception(f"This card is free!")
@@ -450,13 +450,15 @@ async def card_pick():
 
         # @TODO assert card is not already held by someone else
         _card = next(
-            filter(F.where({"address": card_id, "access": access_type}), db["cards"]),
+            filter(
+                F.where({"identifier": card_id, "access": access_type}), db["cards"]
+            ),
             None,
         )
         assert _card is not None
 
         card_idx = db["cards"].index(_card)
-        card = Studycard(**_card)
+        card = Studycard.create(**_card)
 
         if sig_raw is None:
             raters = []
@@ -467,14 +469,14 @@ async def card_pick():
             )
 
         db["cards"][card_idx]["holder"] = address
-        db["users"][address]["holding"] = req.json.get("card")
+        db["users"][address]["holding"] = card_id
 
     return Response("{}", headers=headers.full)
 
 
 async def read_card(card_id, expire: int | None = None):
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
-        card = next(filter(F.where({"address": card_id}), db["cards"]), None)
+        card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
 
         assert card is not None
         async with httpx.AsyncClient() as c:
@@ -572,6 +574,20 @@ async def mint_tx():
 
     mint_account_pubkey = req.args.get("mint_account")
     assert mint_account_pubkey is not None
+
+    card_id = req.args.get("card_id")
+    assert card_id is not None
+
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
+
+        if card is None:
+            raise Exception("Card not found!")
+
+        card_idx = db["cards"].index(card)
+        db["cards"][card_idx] = dict(
+            card, address=mint_account_pubkey, token_account=token_account_pubkey
+        )
 
     txn_mint = rpc.mint_to(
         Pubkey.from_string(token_account_pubkey),

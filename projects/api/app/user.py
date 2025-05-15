@@ -10,7 +10,7 @@ class User:
     address: Pubkey
 
     # the Studycard the user is currently holding
-    holding: Pubkey | None
+    holding: str | None
 
     @classmethod
     def create(cls):

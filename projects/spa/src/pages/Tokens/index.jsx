@@ -95,10 +95,14 @@ export default function Tokens() {
 
 	return signature.SignedTransaction
     }
-    async function mintToken() {
+    async function mintToken(cardIdentifier) {
 	let txResp
 	let txBase64
 	let txData
+
+	if (! cardIdentifier) {
+	    throw new Error(`Invalid card identifier ${cardIdentifier}!`)
+	}
 	
 	// create mint account
 	txResp = await fetch(
@@ -122,7 +126,7 @@ export default function Tokens() {
     
 	// mint & freeze
 	txResp = await fetch(
-	    `${API}/token/mint/tx?mint_account=${mintAccount}&token_account=${tokenAccount}`,
+	    `${API}/token/mint/tx?mint_account=${mintAccount}&token_account=${tokenAccount}&card_id=${cardIdentifier}`,
 	    {credentials: "include"}
 	)
 	txData = await txResp.json()
@@ -166,7 +170,9 @@ export default function Tokens() {
 			return (
 			    <>
 				{!card.spl &&
-				 <button className="button" onClick={mintToken}>MINT TOKEN</button>
+				 <button className="button" onClick={function(e) {
+					     mintToken(card.identifier)
+					 }}>MINT TOKEN</button>
 				}
 				<Cardteaser style={{maxWidth: "0px"}} value={card} />
 			    </>
@@ -221,7 +227,6 @@ export default function Tokens() {
                              <label for="card_name"><p>card_name:</p></label>
                              <input id="card_mame" type="text" name="name" placeholder="Card name" />
 
-			     <input type="hidden" name="address" value="nil" />
 			     <input type="hidden" name="contributor" value={chosen.accounts[0].address} />
 			     <input type="hidden" name="owner" value="" />
 			     <input type="hidden" name="holder" value="" />

@@ -8,6 +8,8 @@ export default function Cardteaser({style, value: data}) {
     if (! thumb && files.some(Boolean)) {
         setThumb(files[0][0])
     }
+
+    console.log(["LOOKING FOR SPL", data])
     
     return (
         <div className="picker"
