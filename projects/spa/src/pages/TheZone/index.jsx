@@ -82,7 +82,7 @@ function Cardpicker(props) {
 
     let transactionSendingSigner = useWalletAccountTransactionSendingSigner(chosen.accounts[0], "solana:devnet")
                                                                                                                                      
-    async function pick(card, accessType) {
+    async function pick(cardIdentifier, accessType) {
         let txSignature = null
         if ("rent" == accessType) {
             let rentForCardResp = await fetch(`${API}/cards/${card}/rent`)
@@ -96,8 +96,9 @@ function Cardpicker(props) {
         await fetch(
             `${API}/cards/pick`,
             {
+		credentials: "include",
                 method: "POST",
-                body: JSON.stringify({card: card, sig: txSignature}),
+                body: JSON.stringify({card: cardIdentifier, sig: txSignature}),
                 headers: {"Content-type": "application/json"}
             }
         )
@@ -106,7 +107,7 @@ function Cardpicker(props) {
     return (
 	<>
 	    <Cardteaser value={props.value} />
-	    <button className="button" onClick={function(e) { pick(data.address, data.access) }}>{data.access.toUpperCase()}</button>
+	    <button className="button" onClick={function(e) { pick(data.identifier, data.access) }}>{data.access.toUpperCase()}</button>
 	</>
     )
 	    
@@ -187,7 +188,7 @@ export default function TheZone() {
 			 return ["rent", "free"].includes(k)
 		     })
 		     .map(function([k, v]) {
-			 return <Cardpicker value={v} />
+			 return <Cardpicker key={k} value={v} />
 		     })}
 		</div>
 	    </>

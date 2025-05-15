@@ -66,8 +66,10 @@ class Studycard:
         since: 0.0.1
         """
         _uuid = str(uuid.uuid4())
-        args["uuid"] = _uuid
-        args["identifier"] = hashlib.md5(bytes(_uuid, "utf-8")).hexdigest()
+
+        if "uuid" not in args:
+            args["uuid"] = _uuid
+            args["identifier"] = hashlib.md5(bytes(_uuid, "utf-8")).hexdigest()
 
         addr = args.get("address", None)
         if "address" not in args or (addr is not None and not addr):

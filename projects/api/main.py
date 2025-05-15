@@ -55,7 +55,7 @@ headers = NS(
         {
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
-            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Headers": "content-type, cookie",
             "Access-Control-Allow-Credentials": "true",
         }
     ),
@@ -381,7 +381,7 @@ async def cards_next():
         if _held is not None:
             held = Studycard.create(**_held)
             if held.free_at < int(time.time()):
-                picked = held.address
+                picked = held.identifier
 
         return Response(
             json.dumps({"free": next_free, "rent": next_rent, "picked": picked}),
@@ -478,19 +478,19 @@ async def read_card(card_id, expire: int | None = None):
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
 
-        assert card is not None
         async with httpx.AsyncClient() as c:
-            return await c.get(list(card["files"].items())[0][0], follow_redirects=True)
+            return await c.get(list(card["media"].items())[0][0], follow_redirects=True)
 
 
-@api.route("/api/dev/cards/<card_id>.<ext>", methods=["GET", "OPTIONS"])
-async def get_card(card_id: str, ext: str):
+@api.route("/api/dev/cards/<card_id>", methods=["GET", "OPTIONS"])
+async def get_card(card_id: str):
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    data: bytes = await read_card(card_id, 15 * 60)
-    content_type = {"Content-type": "image/jpeg"}
-    return Response(data.content, headers=dict(headers.cors, **content_type))
+    # data: bytes = await read_card(card_id, 15 * 60)
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
+        return send_file(join(DATADIR, list(card["media"].items())[0][0]), "image/jpeg")
 
 
 # DECKS

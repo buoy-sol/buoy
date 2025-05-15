@@ -8,7 +8,7 @@ export default function Viewer(props) {
             id: "viewer",
             tileSources: {
                 type: "image",
-		"url": `${API}/units/${props.unit}.jpg`
+		"url": `${API}/cards/${props.card}`
                 // "url": "https://openseadragon.github.io//example-images/grand-canyon-landscape-overlooking.jpg"
             },
 	    showNavigationControl: false,

@@ -227,6 +227,8 @@ export default function Tokens() {
                              <label for="card_name"><p>card_name:</p></label>
                              <input id="card_mame" type="text" name="name" placeholder="Card name" />
 
+			     <input type="radio" name="access" value="rent" />
+			     <input type="radio" name="access" value="free" />
 			     <input type="hidden" name="contributor" value={chosen.accounts[0].address} />
 			     <input type="hidden" name="owner" value="" />
 			     <input type="hidden" name="holder" value="" />
