@@ -204,6 +204,11 @@ async def list_cards():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
+    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+
+    if err is not None:
+        return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
+
     skip, limit, contributor = operator.itemgetter("skip", "limit", "contributor")(
         {**{"skip": 0, "limit": 10, "contributor": None}, **req.args}
     )
@@ -213,6 +218,8 @@ async def list_cards():
 
         if contributor is not None:
             criteria["contributor"] = contributor
+
+        criteria["contributor"] = address
 
         matches = list(
             map(operator.methodcaller("copy"), filter(F.where(criteria), db["cards"]))
@@ -267,6 +274,7 @@ async def card_store() -> CardAddress:
         back = req.form.get("media_back")
 
         form = dict(req.form)
+        form["contributor"] = address
 
         form.pop("media_front", None)
         form.pop("media_back", None)
@@ -291,9 +299,9 @@ async def card_store() -> CardAddress:
 
         if "free" != card.access and not any(contributed):
             n: int = 1
-            raise Exception(
-                f"Cannot rent/sell a card before contributing at least {n} for free first"
-            )
+            # raise Exception(
+            #     f"Cannot rent/sell a card before contributing at least {n} for free first"
+            # )
 
         if "rent" == card.access:
             pass  # ??
@@ -390,9 +398,14 @@ async def cards_next():
 
 
 @api.route("/api/dev/cards/<card_id>/rent", methods=["GET", "OPTIONS"])
-async def get_card_rent(card_id: str):
+async def get_card_rent_tx(card_id: str):
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
+
+    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+
+    if err is not None:
+        return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
 
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         _card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
@@ -400,6 +413,7 @@ async def get_card_rent(card_id: str):
         if _card is None:
             raise Exception(f"Card {card_id} not found!")
 
+        card_idx = db["cards"].index(_card)
         card = Studycard.create(**_card)
 
         if "rent" != card.access:
@@ -414,8 +428,25 @@ async def get_card_rent(card_id: str):
         rent_lamports = 999_999  # temporarily hardcoded
         buoy.fund_pair()
 
+        txn_rent = rpc.rent_escrow(
+            cost=rent_lamports,
+            borrower=Pubkey.from_string(address),
+            owner=Pubkey.from_string(card.contributor),
+            escrow=buoy.pair,
+            token_account=Pubkey.from_string(card.token_account),
+            mint=Pubkey.from_string(card.address),
+            authority=vault,
+        )
+
+        db["cards"][card_idx] = asdict(card)
+
         return Response(
-            json.dumps({"account": str(buoy.pair.pubkey()), "lamports": rent_lamports}),
+            json.dumps(
+                {
+                    "txn": b64encode(bytes(txn_rent)).decode("utf-8"),
+                    "cost": rent_lamports,
+                }
+            ),
             headers=headers.full,
         )
 
@@ -444,7 +475,7 @@ async def card_pick():
             sig, commitment="confirmed", max_supported_transaction_version=0
         )
 
-        print(tx.value)  # @TODO: verify the transaction
+        print(["RENT TX: ", tx.value])  # @TODO: verify the transaction
 
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         _user = next(filter(F.where({"address": address}), db["users"].values()), None)
@@ -460,16 +491,9 @@ async def card_pick():
         assert _card is not None
 
         card_idx = db["cards"].index(_card)
-        card = Studycard.create(**_card)
-
-        raters = []
-
-        rent_lamports = 999_999  # temporarily hardcoded
-        buoy.route_card_rent(
-            rent_lamports, Pubkey.from_string(card.contributor), raters
-        )
 
         db["cards"][card_idx]["holder"] = address
+        db["cards"][card_idx]["escrow"] = sig_raw
         db["users"][address]["holding"] = card_id
 
     return Response("{}", headers=headers.full)
@@ -546,7 +570,8 @@ async def create_token_account_tx():
     assert mint_account_pubkey is not None
 
     txn_account, token_account = rpc.create_token_account(
-        Pubkey.from_string(address), Pubkey.from_string(mint_account_pubkey)
+        Pubkey.from_string(address),
+        Pubkey.from_string(mint_account_pubkey),
     )
 
     return Response(
@@ -591,16 +616,64 @@ async def mint_tx():
         )
 
     txn_mint = rpc.mint_to(
-        Pubkey.from_string(token_account_pubkey),
-        Pubkey.from_string(address),
-        Pubkey.from_string(mint_account_pubkey),
-        vault,
+        token_account=Pubkey.from_string(token_account_pubkey),
+        fee_payer=Pubkey.from_string(address),
+        escrow=buoy.pair.pubkey(),
+        mint=Pubkey.from_string(mint_account_pubkey),
+        authority=vault,
     )
 
     return Response(
         json.dumps({"txn": b64encode(bytes(txn_mint)).decode("utf-8")}),
         headers=headers.full,
     )
+
+
+expiry_checked_at = int(time.time())
+
+
+@api.before_request
+def rent_expiry():
+    global expiry_checked_at
+
+    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+
+    if err is not None:
+        return
+
+    if address is None:
+        return
+
+    if not address:
+        return
+
+    timeout = random.randint(40, 80)
+    check_at = expiry_checked_at + timeout
+
+    if check_at > int(time.time()):
+        return
+
+    expiry_checked_at = int(time.time())
+
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        for card_idx, _card in enumerate(db["cards"]):
+            card = Studycard.create(**_card)
+
+            if "rent" != card.access:
+                continue
+
+            if card.free_at < int(time.time()):
+                continue
+
+            raters = []
+            rent_lamports = 999_999  # temporarily hardcoded
+            buoy.release_rent_escrow(
+                rent_lamports,
+                Pubkey.from_string(card.contributor),
+                raters,
+                Pubkey.from_string(card.token_account),
+                Pubkey.from_string(card.mint_account),
+            )
 
 
 @api.errorhandler(Exception)

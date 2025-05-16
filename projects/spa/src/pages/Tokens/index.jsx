@@ -4,7 +4,7 @@ import { getBase64EncodedWireTransaction, getTransactionDecoder, compileTransact
 
 import { useSignTransaction } from "@solana/react"
 import { useWallets, getWalletAccountFeature } from "@wallet-standard/react-core"
-import { signTransaction } from "@solana/transactions"
+// import { signTransaction } from "@solana/transactions" // NOT IN USE
 
 import Cardteaser from "../../components/Cardteaser"
 import { API } from "../../utils/api"
@@ -34,17 +34,15 @@ function Menu({style: styled}) {
                      background: style.color.menus}}>
             <nav>
                 <ul style={{padding: 0}}>
-                    <li style={{listStyleType: "none", padding: "7px"}}>
-                        <button className="button" onClick={function() {toggle("MENU")}}>THE ZONE</button>
-                    </li>
                     {[
-                        "YOUR TOKENS",
-                        "HELP & FAQ",
-                        "SETINGS"
+			{href: "/zone", text: "THE ZONE"},
+                        {href: "/tokens", text: "YOUR TOKENS"},
+                        {href: "/help", text: "HELP & FAQ"},
+                        {href: "/settings", text: "SETINGS"}
                     ].map(function(e){
                         return (
                             <li key={e} style={{listStyleType: "none"}}>
-                                <button className="button">{e}</button>
+                                <button className="button"><a href={e.href}>{e.text}</a></button>
                             </li>
                         )
                     })}
@@ -71,7 +69,7 @@ export default function Tokens() {
     // let signer = useWalletAccountTransactionSigner(chosen.accounts[0], "solana:devnet")
 
     async function fetchCards() {
-	let cardsResp = await fetch(`${API}/cards`)
+	let cardsResp = await fetch(`${API}/cards`, {credentials: "include"})
 	setCards(await cardsResp.json())
     }
 
@@ -93,8 +91,9 @@ export default function Tokens() {
 	let signedTx = String.fromCharCode.apply(null, signature.signedTransaction)
 	let signedTxBase64 = btoa(signedTx)
 
-	return signature.SignedTransaction
+	return signedTxBase64
     }
+    
     async function mintToken(cardIdentifier) {
 	let txResp
 	let txBase64
@@ -169,24 +168,28 @@ export default function Tokens() {
 		    {cards.some(Boolean) && cards.map(function(card) {
 			let explorer = `https://explorer.solana.com/address/${card.address}?cluster=devnet`
 			return (
-			    <>
+			    <div>
+				<Cardteaser style={{maxWidth: "0px"}} value={card} />
 				{!card.spl &&
 				 <button className="button" onClick={function(e) {
 					     mintToken(card.identifier)
 					 }}>MINT TOKEN</button>
 				}
 				{card.spl &&
-				 <a target="_blank" href={explorer}>see on chain &#x2197;</a>
+				 <button className="button"><a target="_blank" href={explorer}>see on chain &#x2197;</a></button>
 				}
-				<Cardteaser style={{maxWidth: "0px"}} value={card} />
-			    </>
+				<p>-</p>
+			    </div>
 			)
 		    })}
-		    {! cards.some(Boolean) &&
-		     <div>
-			 <p>NO CARDS!</p>
-			 <button onClick={function(e) {setVisible({...visible, CREATOR: true})}}>MAKE ONE</button>
-		     </div>}
+		    <div>
+			{! cards.some(Boolean) &&
+			 <div>
+			     <p>NO CARDS!</p>
+			 </div>
+			}
+			<button onClick={function(e) {setVisible({...visible, CREATOR: true})}}>MAKE ONE</button>
+		    </div>
 		</div>
 
 		<div className="button" style={{width: "50%"}}>
@@ -231,9 +234,12 @@ export default function Tokens() {
                              <label for="card_name"><p>card_name:</p></label>
                              <input id="card_mame" type="text" name="name" placeholder="Card name" />
 
-			     <input type="radio" name="access" value="rent" />
-			     <input type="radio" name="access" value="free" />
-			     <input type="hidden" name="contributor" value={chosen.accounts[0].address} />
+			     <label for="for-rent">Rent</label>
+			     <input id="for-rent" type="radio" name="access" value="rent" required />
+
+			     <label for="for-free">Free</label>
+			     <input id="for-free" type="radio" name="access" value="free" />
+
 			     <input type="hidden" name="owner" value="" />
 			     <input type="hidden" name="holder" value="" />
 			     

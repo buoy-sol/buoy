@@ -116,26 +116,6 @@ class RPC:
         txn = VersionedTransaction(msg, (NullSigner(fee_payer), account))
         return txn, account
 
-    def create_associated_token_account(
-        self, fee_payer: Pubkey, mint: Pubkey
-    ) -> VersionedTransaction:
-        """?"""
-
-        blockhash = self.client.get_latest_blockhash().value.blockhash
-
-        ixs = [
-            tokenprog.create_associated_token_account(
-                payer=fee_payer,
-                owner=fee_payer,
-                mint=mint,
-                token_program_id=TOKEN_2022_PROGRAM_ID,
-            )
-        ]
-
-        msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
-        txn = VersionedTransaction(msg, [NullSigner(fee_payer)])
-        return txn
-
     def get_associated_token_address(self, owner: Pubkey, mint: Pubkey):
         """?"""
         return get_associated_token_address(owner, mint)
@@ -145,7 +125,14 @@ class RPC:
             owner, TokenAccountOpts(program_id=TOKEN_2022_PROGRAM_ID), commitment
         )
 
-    def mint_to(self, to: Pubkey, fee_payer: Pubkey, mint: Pubkey, authority: Keypair):
+    def mint_to(
+        self,
+        token_account: Pubkey,
+        fee_payer: Pubkey,
+        escrow: Pubkey,
+        mint: Pubkey,
+        authority: Keypair,
+    ):
         """?"""
         blockhash = self.client.get_latest_blockhash().value.blockhash
 
@@ -154,17 +141,27 @@ class RPC:
                 tokenprog.MintToCheckedParams(
                     program_id=TOKEN_2022_PROGRAM_ID,
                     mint=mint,
-                    dest=to,
+                    dest=token_account,
                     mint_authority=authority.pubkey(),
                     amount=1,
                     decimals=0,
                     signers=[authority.pubkey()],
                 )
             ),
+            tokenprog.approve(
+                tokenprog.ApproveParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    source=fee_payer,
+                    delegate=escrow,
+                    owner=fee_payer,
+                    amount=1,
+                    signers=[fee_payer],
+                )
+            ),
             tokenprog.freeze_account(
                 tokenprog.FreezeAccountParams(
                     program_id=TOKEN_2022_PROGRAM_ID,
-                    account=to,
+                    account=token_account,
                     mint=mint,
                     authority=authority.pubkey(),
                     multi_signers=[authority.pubkey()],
@@ -197,6 +194,27 @@ class RPC:
         txn = VersionedTransaction(msg, [NullSigner(fee_payer), authority])
         return txn
 
+    def thaw_token_account(
+        self, target: Pubkey, fee_payer: Pubkey, mint: Pubkey, authority: Keypair
+    ):
+        """?"""
+        blockhash = self.client.get_latest_blockhash().value.blockhash
+        ixs = [
+            tokenprog.thaw_account(
+                tokenprog.ThawAccountParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    account=target,
+                    mint=mint,
+                    authority=authority.pubkey(),
+                    multi_signers=[authority.pubkey()],
+                )
+            )
+        ]
+
+        msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
+        txn = VersionedTransaction(msg, [NullSigner(fee_payer), authority])
+        return txn
+
     def transfer(self, sender: Keypair, receiver: Pubkey, lamports: int) -> typing.Any:
         """?"""
 
@@ -211,6 +229,115 @@ class RPC:
 
         msg = Message.new_with_blockhash(ixs, sender.pubkey(), blockhash)
         txn = VersionedTransaction(msg, [sender])
+        return txn
+
+    def release_token(
+        self,
+        escrow: Keypair,
+        owner: Pubkey,
+        token_account: Pubkey,
+        mint: Pubkey,
+        authority: Keypair,
+    ):
+        """releases NFT back from escrow to owner
+
+        ...
+        """
+        blockhash = self.client.get_latest_blockhash().value.blockhash
+        fee_payer = owner
+
+        ixs = [
+            tokenprog.thaw_account(
+                tokenprog.ThawAccountParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    account=token_account,
+                    mint=mint,
+                    authority=authority.pubkey(),
+                    multi_signers=[authority.pubkey()],
+                )
+            ),
+            tokenprog.transfer_checked(
+                tokenprog.TransferCheckedParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    source=token_account,
+                    dest=owner,
+                    owner=escrow.pubkey(),
+                    amount=1,
+                    signers=[escrow],
+                )
+            ),
+            tokenprog.freeze_account(
+                tokenprog.FreezeAccountParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    account=token_account,
+                    mint=mint,
+                    authority=authority.pubkey(),
+                    multi_signers=[authority.pubkey()],
+                )
+            ),
+        ]
+
+        msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
+        txn = VersionedTransaction(msg, [NullSigner(fee_payer), escrow, authority])
+        return txn
+
+    def rent_escrow(
+        self,
+        cost: int,
+        borrower: Pubkey,
+        owner: Pubkey,
+        escrow: Keypair,
+        token_account: Pubkey,
+        mint: Pubkey,
+        authority: Keypair,
+    ) -> typing.Any:
+        """a SOL <-> NFT escrow, essentially
+
+        ...
+        """
+        blockhash = self.client.get_latest_blockhash().value.blockhash
+        fee_payer = borrower
+
+        ixs = [
+            sysprog.transfer(
+                sysprog.TransferParams(
+                    from_pubkey=fee_payer, to_pubkey=escrow.pubkey(), lamports=cost
+                )
+            ),
+            tokenprog.thaw_account(
+                tokenprog.ThawAccountParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    account=token_account,
+                    mint=mint,
+                    authority=authority.pubkey(),
+                    multi_signers=[authority.pubkey()],
+                )
+            ),
+            tokenprog.transfer_checked(
+                tokenprog.TransferCheckedParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    source=token_account,
+                    dest=escrow.pubkey(),
+                    owner=owner,
+                    amount=1,
+                    mint=mint,
+                    decimals=0,
+                    signers=[escrow.pubkey()],
+                )
+            ),
+            tokenprog.freeze_account(
+                tokenprog.FreezeAccountParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    account=token_account,
+                    mint=mint,
+                    authority=authority.pubkey(),
+                    multi_signers=[authority.pubkey()],
+                )
+            ),
+        ]
+
+        msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
+        txn = VersionedTransaction(msg, [NullSigner(fee_payer), escrow, authority])
         return txn
 
     @contextmanager

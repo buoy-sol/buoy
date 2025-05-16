@@ -38,6 +38,9 @@ class Studycard:
     # address of the token account
     token_account: Pubkey | None = None
 
+    # signature of the rent transaction
+    escrow: str | None = None
+
     # card access type
     access: typing.Literal["rent", "free"] = "free"
 
@@ -58,6 +61,9 @@ class Studycard:
 
     # media used as card back
     back: list[str] = field(default_factory=lambda: [])
+
+    # tags to group cards together by
+    tags: list[str] = field(default_factory=lambda: [])
 
     @classmethod
     def create(cls, **args: dict) -> "Studycard":

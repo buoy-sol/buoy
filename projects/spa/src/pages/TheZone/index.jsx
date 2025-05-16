@@ -19,9 +19,9 @@ import {
     signAndSendTransactionMessageWithSigners,
 } from "@solana/kit"
 
-import { useWalletAccountTransactionSendingSigner } from "@solana/react"
-
+import { useSignTransaction, useSignAndSendTransaction, useWalletAccountTransactionSendingSigner } from "@solana/react"
 import { getTransferSolInstruction } from "@solana-program/system"
+// import { signTransaction } from "@solana/transactions"
 
 import { useWallets, useConnect, useDisconnect } from "@wallet-standard/react-core"
 
@@ -54,13 +54,13 @@ function Menu() {
 			<button className="button" onClick={function() {toggle("MENU")}}>THE ZONE</button>
 		    </li>
 		    {[
-			"YOUR TOKENS",
-			"HELP & FAQ",
-			"SETINGS"
+			{href: "/tokens", text: "YOUR TOKENS"},
+			{href: "/help", text: "HELP & FAQ"},
+			{href: "/settings", text: "SETINGS"}
 		    ].map(function(e){
 			return (
 			    <li key={e} style={{listStyleType: "none"}}>
-				<button className="button">{e}</button>
+				<button className="button"><a href={e.href}>{e.text}</a></button>
 			    </li>
 			)
 		    })}
@@ -81,16 +81,27 @@ function Cardpicker(props) {
     let chosen = wallets[0] // @todo user has to make this choice
 
     let transactionSendingSigner = useWalletAccountTransactionSendingSigner(chosen.accounts[0], "solana:devnet")
-                                                                                                                                     
+    let signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
+    
+    async function signAndSend(txBase64) {
+        let txBytes = Uint8Array.from(atob(txBase64), function(c) {
+            return c.charCodeAt(0)
+        })
+
+        return await signAndSendTransaction({transaction: txBytes})
+    }
+    
     async function pick(cardIdentifier, accessType) {
         let txSignature = null
         if ("rent" == accessType) {
-            let rentForCardResp = await fetch(`${API}/cards/${cardIdentifier}/rent`)
+            let rentForCardResp = await fetch(`${API}/cards/${cardIdentifier}/rent`, {credentials: "include"})
             let rentForCard = await rentForCardResp.json()
                                                                                                                                      
             // make the transaction
-            let txSignatureRaw = await transfer(transactionSendingSigner, rentForCard.account, rentForCard.lamports)
-            txSignature = bs58.encode(txSignatureRaw)
+            let txSignatureRaw = await signAndSend(rentForCard.txn)
+	    console.log(["SIG RAW ", txSignatureRaw])
+            txSignature = bs58.encode(txSignatureRaw.signature)
+	    console.log(["SIG ", txSignature])
         }
                                                                                                                                      
         await fetch(
@@ -104,11 +115,14 @@ function Cardpicker(props) {
         )
     }
 
+    let explorer = `https://explorer.solana.com/address/${data.address}?cluster=devnet`
     return (
-	<>
+	<div>
 	    <Cardteaser value={props.value} />
+	    <button className="button"><a target="_blank" href={explorer}>see on chain &#x2197;</a></button>
 	    <button className="button" onClick={function(e) { pick(data.identifier, data.access) }}>{data.access.toUpperCase()}</button>
-	</>
+	    <p>-</p>
+	</div>
     )
 	    
 }
@@ -180,18 +194,23 @@ export default function TheZone() {
 
     if (! cards.picked) {
 	return (
-	    <>
+	    <VisibleContext.Provider value={{visible, setVisible}}>
+		{visible.MENU &&
+		 <Menu />}
 		<p>Studycard picker!</p>
+		<button className="button" onClick={function(){toggle("MENU")}}>MENU</button>
 		<div style={{display: "flex"}}>
 		    {Object.entries(cards)
 		     .filter(function([k, v]) {
 			 return ["rent", "free"].includes(k)
 		     })
 		     .map(function([k, v]) {
-			 return <Cardpicker key={k} value={v} />
+			 return <div style={{margin: "1em"}}>
+				    <Cardpicker key={k} value={v} />
+				</div>
 		     })}
 		</div>
-	    </>
+	    </VisibleContext.Provider>
 	)
     }
 

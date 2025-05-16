@@ -27,8 +27,8 @@ vault_balance_SOL: float = vault_balance / LAMPORTS_PER_SOL
 print(["Vault address", vault.pubkey()])
 print(["Vault balance SOL", vault_balance_SOL])
 
-if 0.2 > vault_balance_SOL:
-    time.sleep(2)
+if 0.01 > vault_balance_SOL:
+    time.sleep(5)
     print(rpc.client.request_airdrop(vault.pubkey(), 1).value)
 
 
@@ -59,10 +59,16 @@ class Buoy:
                 pair = Keypair.from_base58_string(f.read())
 
         assert pair is not None
+        print(pair.pubkey())
         return cls(pair)
 
     def fund_pair(self):
         """move some funds from vault account to buoy account"""
+        balance = rpc.client.get_balance(self.pair.pubkey()).value
+        if 0 < balance:
+            print("buoy pair already initialized")
+            return None
+
         cost: int = rpc.client.get_minimum_balance_for_rent_exemption(0).value
         tx = rpc.transfer(vault, self.pair.pubkey(), cost)
         print(
@@ -79,11 +85,13 @@ class Buoy:
     def cut(self, percent: int | float, of: int) -> int:
         return math.floor(percent * of / 100)
 
-    def route_card_rent(
+    def release_rent_escrow(
         self,
         lamports: int,
         contributor: Pubkey,
         raters: list[Pubkey],
+        token_account: Pubkey,
+        mint: Pubkey,
         distribution: Distribution = None,
     ):
         if distribution is None:  # default distribution
@@ -110,6 +118,8 @@ class Buoy:
         for recipient, amount in recipients:
             tx = rpc.transfer(self.pair, recipient, amount)
             print(tx)
+
+        rpc.release_token(self.pair, contributor, token_account, mint, vault)
 
         return True
 

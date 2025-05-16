@@ -121,6 +121,10 @@ button:focus-visible {
     z-index: 1;
 }
 
+#menu a {
+    color: inherit;
+}
+
 @media only screen and (max-width: 800px) {
     #the-zone-controls {
         flex-direction: column;
