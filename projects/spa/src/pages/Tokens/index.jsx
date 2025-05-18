@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react"
 import bs58 from "bs58"
 import { getBase64EncodedWireTransaction, getTransactionDecoder, compileTransaction } from "@solana/kit"
 
-import { useSignTransaction } from "@solana/react"
+import { useSignTransaction, useSignAndSendTransaction } from "@solana/react"
 import { useWallets, getWalletAccountFeature } from "@wallet-standard/react-core"
 // import { signTransaction } from "@solana/transactions" // NOT IN USE
 
@@ -68,6 +68,16 @@ export default function Tokens() {
     let signTransaction = useSignTransaction(chosen.accounts[0], "solana:devnet")
     // let signer = useWalletAccountTransactionSigner(chosen.accounts[0], "solana:devnet")
 
+    let signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
+                                                                                               
+    async function signAndSend(txBase64) {
+        let txBytes = Uint8Array.from(atob(txBase64), function(c) {
+            return c.charCodeAt(0)
+        })
+                                                                                               
+        return await signAndSendTransaction({transaction: txBytes})
+    }
+    
     async function fetchCards() {
 	let cardsResp = await fetch(`${API}/cards`, {credentials: "include"})
 	setCards(await cardsResp.json())
@@ -93,7 +103,32 @@ export default function Tokens() {
 
 	return signedTxBase64
     }
-    
+
+    async function escrowToken(cardIdentifier) {
+	let txResp = await fetch(
+	    `${API}/token/escrow/tx?card_id=${cardIdentifier}`,
+	    {credentials: "include"}
+	)
+
+	let txData = await txResp.json()
+	console.log(await signAndSend(txData.txn_escrow_to))
+    }
+
+    async function retrieveToken(cardIdentifier) {
+	let txResp = await fetch(
+	    `${API}/token/retrieval/tx?card_id=${cardIdentifier}`,
+	    {credentials: "include"}
+	)
+
+	let txData = await txResp.json()
+	console.log(await signAndSend(txData.txn_retrieval))
+
+	await fetch(
+	    `${API}/token/retrieve/tx?card_id=${cardIdentifier}`,
+	    {credentials: "include"}
+	)
+    }
+   
     async function mintToken(cardIdentifier) {
 	let txResp
 	let txBase64
@@ -113,7 +148,7 @@ export default function Tokens() {
 
 	await sign(txData.txn)
 
-	// create token account
+	// create token account(s)
 	txResp = await fetch(
 	    `${API}/token/account/tx?mint_account=${mintAccount}`,
 	    {credentials: "include"}
@@ -122,6 +157,7 @@ export default function Tokens() {
 	let tokenAccount = txData.token_account
 
 	await sign(txData.txn)
+	await sign(txData.txn_escrows)
     
 	// mint & freeze
 	txResp = await fetch(
@@ -130,7 +166,7 @@ export default function Tokens() {
 	)
 	txData = await txResp.json()
 
-	console.log(await sign(txData.txn))
+	console.log(await sign(txData.txn_mint_to))
     }
     
     function mediaChange(e, idx) {
@@ -171,12 +207,33 @@ export default function Tokens() {
 			    <div>
 				<Cardteaser style={{maxWidth: "0px"}} value={card} />
 				{!card.spl &&
-				 <button className="button" onClick={function(e) {
+				 <button className="button"
+					 onClick={function(e) {
 					     mintToken(card.identifier)
 					 }}>MINT TOKEN</button>
 				}
 				{card.spl &&
-				 <button className="button"><a target="_blank" href={explorer}>see on chain &#x2197;</a></button>
+				 (
+				     <>
+					 {(0 < card.spl.data.amount) &&
+					  <button className="button"
+						  style={{cursor: "help", background: "lightgrey"}}
+						  title="FOR RENTING"
+						  onClick={function(e) {
+						      escrowToken(card.identifier)
+						  }}>ESCROW</button>
+					 }
+					 {(0 == card.spl.data.amount) &&
+                                          <button className="button"
+                                                  style={{cursor: "help", background: "lightgrey"}}
+                                                  title="FROM RENTING"
+                                                  onClick={function(e) {
+                                                      retrieveToken(card.identifier)
+                                                  }}>RETRIEVE</button>
+                                         }
+					 <button className="button"><a target="_blank" href={explorer}>see on chain &#x2197;</a></button>
+				     </>
+				 )
 				}
 				<p>-</p>
 			    </div>

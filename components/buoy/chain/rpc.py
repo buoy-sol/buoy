@@ -28,6 +28,16 @@ AccountType = typing.Literal["mint", "token", "associated_token"]
 
 
 @dataclass
+class TokenAccount:
+
+    value: Pubkey
+
+    @classmethod
+    def create(cls, value: Pubkey) -> "TokenAccount":
+        return cls(value)
+
+
+@dataclass
 class RPC:
     """?"""
 
@@ -78,13 +88,16 @@ class RPC:
         return txn, mint_keypair
 
     def create_token_account(
-        self, fee_payer: Pubkey, mint: Pubkey
+        self, fee_payer: Pubkey, mint: Pubkey, owner: Pubkey | None = None
     ) -> typing.Tuple[VersionedTransaction, Keypair]:
         """?"""
         blockhash = self.client.get_latest_blockhash().value.blockhash
         cost = Token.get_min_balance_rent_for_exempt_for_account(self.client)
 
         account = Keypair()
+
+        if owner is None:
+            owner = fee_payer
 
         ixs = [
             sysprog.create_account(
@@ -100,10 +113,26 @@ class RPC:
                 tokenprog.InitializeAccountParams(
                     account=account.pubkey(),
                     mint=mint,
-                    owner=fee_payer,
+                    owner=owner,
                     program_id=TOKEN_2022_PROGRAM_ID,
                 )
             ),
+            tokenprog.create_associated_token_account(
+                payer=fee_payer,
+                owner=owner,
+                mint=mint,
+                token_program_id=TOKEN_2022_PROGRAM_ID,
+            ),
+        ]
+
+        msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
+        txn = VersionedTransaction(msg, [NullSigner(fee_payer), account])
+        return txn, account
+
+    def create_associated_token_account(self, fee_payer: Pubkey, mint: Pubkey):
+        """?"""
+        blockhash = self.client.get_latest_blockhash().value.blockhash
+        ixs = [
             tokenprog.create_associated_token_account(
                 payer=fee_payer,
                 owner=fee_payer,
@@ -113,10 +142,10 @@ class RPC:
         ]
 
         msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
-        txn = VersionedTransaction(msg, (NullSigner(fee_payer), account))
-        return txn, account
+        txn = VersionedTransaction(msg, [NullSigner(fee_payer)])
+        return txn
 
-    def get_associated_token_address(self, owner: Pubkey, mint: Pubkey):
+    def get_associated_token_account(self, owner: Pubkey, mint: Pubkey):
         """?"""
         return get_associated_token_address(owner, mint)
 
@@ -129,7 +158,6 @@ class RPC:
         self,
         token_account: Pubkey,
         fee_payer: Pubkey,
-        escrow: Pubkey,
         mint: Pubkey,
         authority: Keypair,
     ):
@@ -147,30 +175,32 @@ class RPC:
                     decimals=0,
                     signers=[authority.pubkey()],
                 )
-            ),
-            tokenprog.approve(
-                tokenprog.ApproveParams(
-                    program_id=TOKEN_2022_PROGRAM_ID,
-                    source=fee_payer,
-                    delegate=escrow,
-                    owner=fee_payer,
-                    amount=1,
-                    signers=[fee_payer],
-                )
-            ),
-            tokenprog.freeze_account(
-                tokenprog.FreezeAccountParams(
-                    program_id=TOKEN_2022_PROGRAM_ID,
-                    account=token_account,
-                    mint=mint,
-                    authority=authority.pubkey(),
-                    multi_signers=[authority.pubkey()],
-                )
-            ),
+            )
         ]
 
         msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
         txn = VersionedTransaction(msg, [NullSigner(fee_payer), authority])
+        return txn
+
+    def delegate_to(self, fee_payer: Pubkey, delegate: Pubkey, token_account: Pubkey):
+        """?"""
+        blockhash = self.client.get_latest_blockhash().value.blockhash
+
+        ixs = [
+            tokenprog.approve(
+                tokenprog.ApproveParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    source=token_account,
+                    delegate=delegate,
+                    owner=fee_payer,
+                    amount=1,
+                    signers=[fee_payer],
+                )
+            )
+        ]
+
+        msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
+        txn = VersionedTransaction(msg, [NullSigner(fee_payer)])
         return txn
 
     def freeze_token_account(
@@ -215,129 +245,103 @@ class RPC:
         txn = VersionedTransaction(msg, [NullSigner(fee_payer), authority])
         return txn
 
-    def transfer(self, sender: Keypair, receiver: Pubkey, lamports: int) -> typing.Any:
+    def transfer(
+        self, sender: Pubkey | Keypair, receiver: Pubkey, lamports: int
+    ) -> typing.Any:
         """?"""
+
+        if isinstance(sender, Keypair):
+            from_pubkey = sender.pubkey()
+            signers = [from_pubkey]
+
+        if isinstance(sender, Pubkey):
+            from_pubkey = sender
+            signers = [NullSigner(sender)]
 
         blockhash = self.client.get_latest_blockhash().value.blockhash
         ixs = [
             sysprog.transfer(
                 sysprog.TransferParams(
-                    from_pubkey=sender.pubkey(), to_pubkey=receiver, lamports=lamports
+                    from_pubkey=from_pubkey, to_pubkey=receiver, lamports=lamports
                 )
             )
         ]
 
-        msg = Message.new_with_blockhash(ixs, sender.pubkey(), blockhash)
-        txn = VersionedTransaction(msg, [sender])
+        msg = Message.new_with_blockhash(ixs, from_pubkey, blockhash)
+        txn = VersionedTransaction(msg, signers)
         return txn
 
-    def release_token(
+    def return_token_escrow(
         self,
-        escrow: Keypair,
-        owner: Pubkey,
-        token_account: Pubkey,
+        fee_payer: Pubkey,
         mint: Pubkey,
-        authority: Keypair,
+        source: TokenAccount,
+        dest: TokenAccount,
+        owner: Pubkey,
     ):
-        """releases NFT back from escrow to owner
+        """releases NFT back from escrow TA to owner TA
 
+        todo: fee_payer is irrelevant in this scenario
         ...
         """
+        assert isinstance(source, TokenAccount), type(source)
+        assert isinstance(dest, TokenAccount), type(dest)
+
         blockhash = self.client.get_latest_blockhash().value.blockhash
-        fee_payer = owner
 
         ixs = [
-            tokenprog.thaw_account(
-                tokenprog.ThawAccountParams(
-                    program_id=TOKEN_2022_PROGRAM_ID,
-                    account=token_account,
-                    mint=mint,
-                    authority=authority.pubkey(),
-                    multi_signers=[authority.pubkey()],
-                )
-            ),
             tokenprog.transfer_checked(
                 tokenprog.TransferCheckedParams(
                     program_id=TOKEN_2022_PROGRAM_ID,
-                    source=token_account,
-                    dest=owner,
-                    owner=escrow.pubkey(),
-                    amount=1,
-                    signers=[escrow],
-                )
-            ),
-            tokenprog.freeze_account(
-                tokenprog.FreezeAccountParams(
-                    program_id=TOKEN_2022_PROGRAM_ID,
-                    account=token_account,
-                    mint=mint,
-                    authority=authority.pubkey(),
-                    multi_signers=[authority.pubkey()],
-                )
-            ),
-        ]
-
-        msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
-        txn = VersionedTransaction(msg, [NullSigner(fee_payer), escrow, authority])
-        return txn
-
-    def rent_escrow(
-        self,
-        cost: int,
-        borrower: Pubkey,
-        owner: Pubkey,
-        escrow: Keypair,
-        token_account: Pubkey,
-        mint: Pubkey,
-        authority: Keypair,
-    ) -> typing.Any:
-        """a SOL <-> NFT escrow, essentially
-
-        ...
-        """
-        blockhash = self.client.get_latest_blockhash().value.blockhash
-        fee_payer = borrower
-
-        ixs = [
-            sysprog.transfer(
-                sysprog.TransferParams(
-                    from_pubkey=fee_payer, to_pubkey=escrow.pubkey(), lamports=cost
-                )
-            ),
-            tokenprog.thaw_account(
-                tokenprog.ThawAccountParams(
-                    program_id=TOKEN_2022_PROGRAM_ID,
-                    account=token_account,
-                    mint=mint,
-                    authority=authority.pubkey(),
-                    multi_signers=[authority.pubkey()],
-                )
-            ),
-            tokenprog.transfer_checked(
-                tokenprog.TransferCheckedParams(
-                    program_id=TOKEN_2022_PROGRAM_ID,
-                    source=token_account,
-                    dest=escrow.pubkey(),
+                    source=source.value,
+                    dest=dest.value,
                     owner=owner,
                     amount=1,
                     mint=mint,
                     decimals=0,
-                    signers=[escrow.pubkey()],
-                )
-            ),
-            tokenprog.freeze_account(
-                tokenprog.FreezeAccountParams(
-                    program_id=TOKEN_2022_PROGRAM_ID,
-                    account=token_account,
-                    mint=mint,
-                    authority=authority.pubkey(),
-                    multi_signers=[authority.pubkey()],
+                    signers=[],
                 )
             ),
         ]
 
         msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
-        txn = VersionedTransaction(msg, [NullSigner(fee_payer), escrow, authority])
+        txn = VersionedTransaction(msg, [NullSigner(owner)])
+        return txn
+
+    def rent_token_escrow(
+        self,
+        fee_payer: Pubkey,
+        mint: Pubkey,
+        source: TokenAccount,
+        dest: TokenAccount,
+        owner: Pubkey,
+    ) -> typing.Any:
+        """system acts as escrow between TA of original token owner and TA of renter
+
+        ...
+        """
+        assert isinstance(source, TokenAccount), type(source)
+        assert isinstance(dest, TokenAccount), type(dest)
+
+        blockhash = self.client.get_latest_blockhash().value.blockhash
+
+        ixs = [
+            tokenprog.transfer_checked(
+                tokenprog.TransferCheckedParams(
+                    program_id=TOKEN_2022_PROGRAM_ID,
+                    source=source.value,
+                    dest=dest.value,
+                    owner=owner,
+                    amount=1,
+                    mint=mint,
+                    decimals=0,
+                    signers=[],
+                )
+            ),
+        ]
+
+        msg = Message.new_with_blockhash(ixs, fee_payer, blockhash)
+        txn = VersionedTransaction(msg, [NullSigner(fee_payer)])
         return txn
 
     @contextmanager
@@ -354,6 +358,14 @@ class RPC:
 
                 print(f"Failed {ex}, waiting (blocking) {after} to retry")
                 time.sleep(after)
+
+    def sign_transaction(self, txn: VersionedTransaction, signer: Keypair):
+        sigs = txn.signatures
+        for sig_idx, pending in enumerate(txn.message.account_keys):
+            if pending == signer.pubkey():
+                sigs[sig_idx] = signer.sign_message(bytes(txn.message))
+
+        return sigs
 
 
 rpc = RPC.create(NetLoc("https://api.devnet.solana.com"))  # singleton

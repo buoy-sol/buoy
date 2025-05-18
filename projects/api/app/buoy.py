@@ -119,7 +119,8 @@ class Buoy:
             tx = rpc.transfer(self.pair, recipient, amount)
             print(tx)
 
-        rpc.release_token(self.pair, contributor, token_account, mint, vault)
+        # @todo tx has to be funded and signed
+        # rpc.return_token_escrow(self.pair, contributor, token_account, mint)
 
         return True
 

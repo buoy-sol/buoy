@@ -96,12 +96,10 @@ function Cardpicker(props) {
         if ("rent" == accessType) {
             let rentForCardResp = await fetch(`${API}/cards/${cardIdentifier}/rent`, {credentials: "include"})
             let rentForCard = await rentForCardResp.json()
-                                                                                                                                     
-            // make the transaction
-            let txSignatureRaw = await signAndSend(rentForCard.txn)
-	    console.log(["SIG RAW ", txSignatureRaw])
+
+	    // funds the transfer
+	    let txSignatureRaw = await signAndSend(rentForCard.txn_rent_fee)
             txSignature = bs58.encode(txSignatureRaw.signature)
-	    console.log(["SIG ", txSignature])
         }
                                                                                                                                      
         await fetch(
@@ -119,8 +117,15 @@ function Cardpicker(props) {
     return (
 	<div>
 	    <Cardteaser value={props.value} />
-	    <button className="button"><a target="_blank" href={explorer}>see on chain &#x2197;</a></button>
-	    <button className="button" onClick={function(e) { pick(data.identifier, data.access) }}>{data.access.toUpperCase()}</button>
+	    <button className="button">
+		<a target="_blank" href={explorer}>see on chain &#x2197;</a>
+	    </button>
+	    <button disabled={(data.spl.data.amount == 0)}
+		    className="button"
+		    style={{background: ((data.spl.data.amount == 0) ? "lightgrey" : "#fff")}}
+		    onClick={function(e) {
+			pick(data.identifier, data.access)
+		    }}>{data.access.toUpperCase()}</button>
 	    <p>-</p>
 	</div>
     )
@@ -247,7 +252,7 @@ export default function TheZone() {
 		     <p>-</p>
 		     <p>GRADE CARD SUCCESS FOR (SM-2 ALGORITHM):</p>
 		     
-		     <div style={{display: "flex"}}>
+		     <div style={{display: "flex", justifyContent: "center"}}>
 			 <button className="button">AGAIN</button>
 			 <button className="button">HARD</button>
 			 <button className="button">GOOD</button>

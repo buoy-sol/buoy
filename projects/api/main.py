@@ -23,7 +23,7 @@ from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
 from os.path import exists, join, splitext
 from solana.rpc.commitment import Confirmed
-from solana.rpc.types import TxOpts
+from solana.rpc.types import TxOpts, TokenAccountOpts
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.signature import Signature
@@ -36,8 +36,13 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 
 from app.buoy import buoy, vault
-from app.constants import WORKER_PROCESSES, DATADIR, DATABASE
-from app.chain.rpc import rpc
+from app.constants import (
+    DATADIR,
+    DATABASE,
+    RENT_UPFRONT_COSTS_LAMPORTS,
+    WORKER_PROCESSES,
+)
+from app.chain.rpc import TokenAccount, rpc
 from app.db import dbm_open_bytes
 from app.rating import Rating
 from app.studycard import Studycard
@@ -213,6 +218,17 @@ async def list_cards():
         {**{"skip": 0, "limit": 10, "contributor": None}, **req.args}
     )
 
+    tokens: dict[str, float] = {}
+
+    for token in rpc.client.get_token_accounts_by_owner_json_parsed(
+        Pubkey.from_string(address),
+        TokenAccountOpts(program_id=TOKEN_2022_PROGRAM_ID),
+        commitment="confirmed",
+    ).value:
+        k = token.account.data.parsed["info"]["mint"]
+        v = float(token.account.data.parsed["info"]["tokenAmount"]["amount"])
+        tokens[k] = v
+
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         criteria = {}
 
@@ -235,6 +251,7 @@ async def list_cards():
 
                 data = MINT_LAYOUT.parse(bytes(e["spl"]["data"]))
                 e["spl"]["data"] = data
+                e["spl"]["data"]["amount"] = tokens.get(e["address"], 0.0)
                 e["spl"]["data"]["minter"] = str(Pubkey(data.mint_authority))
                 e["spl"]["data"]["freezer"] = str(Pubkey(data.freeze_authority))
                 return e
@@ -329,6 +346,17 @@ async def cards_next():
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
 
+    tokens: dict[str, float] = {}
+
+    for token in rpc.client.get_token_accounts_by_owner_json_parsed(
+        buoy.pair.pubkey(),
+        TokenAccountOpts(program_id=TOKEN_2022_PROGRAM_ID),
+        commitment="confirmed",
+    ).value:
+        k = token.account.data.parsed["info"]["mint"]
+        v = float(token.account.data.parsed["info"]["tokenAmount"]["amount"])
+        tokens[k] = v
+
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         _user = next(filter(F.where({"address": address}), db["users"].values()), None)
         assert _user is not None
@@ -364,11 +392,21 @@ async def cards_next():
 
         user_skill = user.get_skill(ratings, relevant)
 
+        def with_held_amount(e: dict) -> dict:
+            e["spl"] = {"data": {"amount": tokens.get(e["address"], 0.0)}}
+            return e
+
         # find next where access: rent and rating > user_skill
         next_rent = next(
-            filter(
-                lambda e: rated.get(e["identifier"], 0) >= user_skill,
-                filter(F.where({"access": "rent"}), db["cards"]),
+            map(
+                with_held_amount,
+                map(
+                    operator.methodcaller("copy"),
+                    filter(
+                        lambda e: rated.get(e["identifier"], 0) >= user_skill,
+                        filter(F.where({"access": "rent"}), db["cards"]),
+                    ),
+                ),
             ),
             None,
         )
@@ -425,17 +463,13 @@ async def get_card_rent_tx(card_id: str):
                 f"Card {card_id} is currently reserved! Try again in {remaining}"
             )
 
-        rent_lamports = 999_999  # temporarily hardcoded
+        rent_lamports = 99_999  # temporarily hardcoded
         buoy.fund_pair()
 
-        txn_rent = rpc.rent_escrow(
-            cost=rent_lamports,
-            borrower=Pubkey.from_string(address),
-            owner=Pubkey.from_string(card.contributor),
-            escrow=buoy.pair,
-            token_account=Pubkey.from_string(card.token_account),
-            mint=Pubkey.from_string(card.address),
-            authority=vault,
+        txn_rent_fee = rpc.transfer(
+            Pubkey.from_string(address),
+            buoy.pair.pubkey(),
+            rent_lamports + RENT_UPFRONT_COSTS_LAMPORTS,
         )
 
         db["cards"][card_idx] = asdict(card)
@@ -443,7 +477,7 @@ async def get_card_rent_tx(card_id: str):
         return Response(
             json.dumps(
                 {
-                    "txn": b64encode(bytes(txn_rent)).decode("utf-8"),
+                    "txn_rent_fee": b64encode(bytes(txn_rent_fee)).decode("utf-8"),
                     "cost": rent_lamports,
                 }
             ),
@@ -470,12 +504,6 @@ async def card_pick():
 
     if sig_raw is not None:
         access_type = "rent"
-        sig = Signature(base58.b58decode(sig_raw))
-        tx = rpc.client.get_transaction(
-            sig, commitment="confirmed", max_supported_transaction_version=0
-        )
-
-        print(["RENT TX: ", tx.value])  # @TODO: verify the transaction
 
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         _user = next(filter(F.where({"address": address}), db["users"].values()), None)
@@ -491,6 +519,14 @@ async def card_pick():
         assert _card is not None
 
         card_idx = db["cards"].index(_card)
+
+        if sig_raw is not None:
+            sig = Signature(base58.b58decode(sig_raw))
+            tx = rpc.client.get_transaction(
+                sig, commitment="confirmed", max_supported_transaction_version=0
+            )
+
+            print(["RENT TX: ", tx.value])  # @TODO: verify the transaction
 
         db["cards"][card_idx]["holder"] = address
         db["cards"][card_idx]["escrow"] = sig_raw
@@ -518,11 +554,11 @@ async def get_card(card_id: str):
         return send_file(join(DATADIR, list(card["media"].items())[0][0]), "image/jpeg")
 
 
-# DECKS
+## DECKS
 # ...
 
 
-# MINT
+## MINT
 
 txn_opts = TxOpts(
     skip_preflight=False,
@@ -574,10 +610,17 @@ async def create_token_account_tx():
         Pubkey.from_string(mint_account_pubkey),
     )
 
+    txn_token_escrow, _ = rpc.create_token_account(
+        Pubkey.from_string(address),
+        Pubkey.from_string(mint_account_pubkey),
+        buoy.pair.pubkey(),
+    )
+
     return Response(
         json.dumps(
             {
                 "txn": b64encode(bytes(txn_account)).decode("utf-8"),
+                "txn_escrows": b64encode(bytes(txn_token_escrow)).decode("utf-8"),
                 "token_account": str(token_account.pubkey()),
             }
         ),
@@ -615,18 +658,134 @@ async def mint_tx():
             card, address=mint_account_pubkey, token_account=token_account_pubkey
         )
 
-    txn_mint = rpc.mint_to(
+    txn_mint_to = rpc.mint_to(
         token_account=Pubkey.from_string(token_account_pubkey),
         fee_payer=Pubkey.from_string(address),
-        escrow=buoy.pair.pubkey(),
         mint=Pubkey.from_string(mint_account_pubkey),
         authority=vault,
     )
 
     return Response(
-        json.dumps({"txn": b64encode(bytes(txn_mint)).decode("utf-8")}),
+        json.dumps({"txn_mint_to": b64encode(bytes(txn_mint_to)).decode("utf-8")}),
         headers=headers.full,
     )
+
+
+## ESCROW
+
+
+@api.route("/api/dev/token/escrow/tx", methods=["GET", "OPTIONS"])
+async def escrow_tx():
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+
+    if err is not None:
+        return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
+
+    card_id = req.args.get("card_id")
+    assert card_id is not None
+
+    ta_escrow = None
+
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        _card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
+        assert _card is not None
+
+        card = Studycard.create(**_card)
+
+        for token in rpc.client.get_token_accounts_by_owner_json_parsed(
+            buoy.pair.pubkey(),
+            TokenAccountOpts(program_id=TOKEN_2022_PROGRAM_ID),
+            commitment="confirmed",
+        ).value:
+            if card.mint_account == token.account.data.parsed["info"]["mint"]:
+                ta_escrow = TokenAccount(token.pubkey)
+                break
+
+        assert ta_escrow is not None
+
+        txn_escrow = rpc.rent_token_escrow(
+            fee_payer=Pubkey.from_string(address),
+            mint=Pubkey.from_string(card.mint_account),
+            source=TokenAccount(Pubkey.from_string(card.token_account)),
+            dest=ta_escrow,
+            owner=Pubkey.from_string(address),
+        )
+
+        return Response(
+            json.dumps({"txn_escrow_to": b64encode(bytes(txn_escrow)).decode("utf-8")}),
+            headers=headers.full,
+        )
+
+
+@api.route("/api/dev/token/retrieval/tx", methods=["GET", "OPTIONS"])
+async def retrieval_tx():
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+
+    if err is not None:
+        return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
+
+    txn_retrieval = rpc.transfer(Pubkey.from_string(address), buoy.pair.pubkey(), 5_000)
+
+    return Response(
+        json.dumps({"txn_retrieval": b64encode(bytes(txn_retrieval)).decode("utf-8")}),
+        headers=headers.full,
+    )
+
+
+@api.route("/api/dev/token/retrieve/tx", methods=["GET", "OPTIONS"])
+async def retrieve_tx():
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+
+    if err is not None:
+        return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
+
+    card_id = req.args.get("card_id")
+    assert card_id is not None
+
+    ta_escrow = None
+
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        _card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
+        assert _card is not None
+
+        card = Studycard.create(**_card)
+
+        for token in rpc.client.get_token_accounts_by_owner_json_parsed(
+            buoy.pair.pubkey(),
+            TokenAccountOpts(program_id=TOKEN_2022_PROGRAM_ID),
+            commitment="confirmed",
+        ).value:
+            if card.mint_account == token.account.data.parsed["info"][
+                "mint"
+            ] and 0 < float(token.account.data.parsed["info"]["tokenAmount"]["amount"]):
+                ta_escrow = TokenAccount(token.pubkey)
+                break
+
+        assert ta_escrow is not None
+
+        txn_retrieve = rpc.return_token_escrow(
+            fee_payer=buoy.pair.pubkey(),
+            mint=Pubkey.from_string(card.mint_account),
+            source=ta_escrow,
+            dest=TokenAccount(Pubkey.from_string(card.token_account)),
+            owner=buoy.pair.pubkey(),
+        )
+        txn_retrieve.signatures = rpc.sign_transaction(txn_retrieve, buoy.pair)
+        txn_retrieved = rpc.client.send_transaction(txn_retrieve, txn_opts)
+
+        return Response(
+            json.dumps({"ok": 0}),
+            headers=headers.full,
+        )
 
 
 expiry_checked_at = int(time.time())
@@ -666,7 +825,7 @@ def rent_expiry():
                 continue
 
             raters = []
-            rent_lamports = 999_999  # temporarily hardcoded
+            rent_lamports = 99_999  # temporarily hardcoded
             buoy.release_rent_escrow(
                 rent_lamports,
                 Pubkey.from_string(card.contributor),
