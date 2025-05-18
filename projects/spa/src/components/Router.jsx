@@ -1,9 +1,9 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, createHashRouter, RouterProvider } from 'react-router-dom'
 import Landing from '../pages/Landing'
 import TheZone from '../pages/TheZone'
 import Tokens from '../pages/Tokens'
 
-const routes = createBrowserRouter([
+const routes = createHashRouter([
     {
         path: "/",
         element: <Landing />

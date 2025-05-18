@@ -164,14 +164,14 @@ export default function Landing() {
 			   choose(chosen)
 			   return
 		       }
-		       window.location.replace("/zone")
+		       window.location.replace("/#zone")
 		   }} className="star-sign">
 		    <Star />
 		</a>
 
 		<button className="button" style={{background: style.color.mentor}} onClick={function(){setPane("mentor")}}>TEACH TO EARN</button>
 		<button className="button" style={{background: style.color.student}} onClick={function(){setPane("student")}}>PAY TO LEARN</button>
-		<button className="button" onClick={function(){window.location.replace("/zone")}}>ENTER THE ZONE</button>
+		<button className="button" onClick={function(){window.location.replace("/#zone")}}>ENTER THE ZONE</button>
 
 		{"mentor" == pane &&
 		 <div className="button pane" style={{background: style.color.mentor}}>

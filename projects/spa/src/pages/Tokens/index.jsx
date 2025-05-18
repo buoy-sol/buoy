@@ -35,10 +35,10 @@ function Menu({style: styled}) {
             <nav>
                 <ul style={{padding: 0}}>
                     {[
-			{href: "/zone", text: "THE ZONE"},
-                        {href: "/tokens", text: "YOUR TOKENS"},
-                        {href: "/help", text: "HELP & FAQ"},
-                        {href: "/settings", text: "SETINGS"}
+			{href: "/#zone", text: "THE ZONE"},
+                        {href: "/#tokens", text: "YOUR TOKENS"},
+                        {href: "/#help", text: "HELP & FAQ"},
+                        {href: "/#settings", text: "SETINGS"}
                     ].map(function(e){
                         return (
                             <li key={e} style={{listStyleType: "none"}}>

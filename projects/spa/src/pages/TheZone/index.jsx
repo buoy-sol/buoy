@@ -54,9 +54,9 @@ function Menu() {
 			<button className="button" onClick={function() {toggle("MENU")}}>THE ZONE</button>
 		    </li>
 		    {[
-			{href: "/tokens", text: "YOUR TOKENS"},
-			{href: "/help", text: "HELP & FAQ"},
-			{href: "/settings", text: "SETINGS"}
+			{href: "/#tokens", text: "YOUR TOKENS"},
+			{href: "/#help", text: "HELP & FAQ"},
+			{href: "/#settings", text: "SETINGS"}
 		    ].map(function(e){
 			return (
 			    <li key={e} style={{listStyleType: "none"}}>
