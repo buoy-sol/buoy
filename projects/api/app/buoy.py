@@ -56,7 +56,7 @@ class Buoy:
 
         if pair is None:
             with open(PAIR_PATH, "r") as f:
-                pair = Keypair.from_base58_string(f.read())
+                pair = Keypair.from_base58_string(f.read().rstrip())
 
         assert pair is not None
         print(pair.pubkey())
