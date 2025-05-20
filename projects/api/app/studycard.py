@@ -53,6 +53,9 @@ class Studycard:
     # last rent timestamp
     rented_at: int = 0
 
+    # moderation timestamp
+    moderated_at: int = 0
+
     # filename->checksum pair
     media: dict[str, str] = field(default_factory=dict)
 
@@ -92,6 +95,13 @@ class Studycard:
     @property
     def free_at(self) -> int:
         return self.rented_at + self.inactive_period + self.rent_period
+
+    @property
+    def content(self) -> dict:
+        if 0 < self.moderated_at:
+            return self.media
+
+        return {"unmoderated.svg": "-"}
 
     @property
     def mint_account(self) -> Pubkey:

@@ -6,6 +6,7 @@ import json
 import operator
 import os
 import random
+import secrets
 import shutil
 import tempfile
 import time
@@ -83,6 +84,22 @@ class Store:
 
 mem = Store.create()
 
+## MODS
+
+mods: list[str] = deque(map(lambda _: secrets.token_hex(10), range(0, 10)), maxlen=10)
+
+
+@functools.lru_cache(maxsize=1)
+def mod_index(key: str, ttl: int) -> int:
+    global mods
+    if key not in mods:
+        return -1
+
+    position = mods.index(key)
+    mods.append(secrets.token_hex(10))
+    return position
+
+
 ## AUTH
 
 
@@ -138,13 +155,15 @@ async def authenticate():
     mem.session[handle]["checked_at"] = int(time.time())
 
     same_site = "strict"
+    secure = ""
     if True:  # for dev purposes
-        same_site = "Lax"
+        same_site = "None"
+        secure = "Secure"
 
     with_cookie = dict(
         headers.cors,
         **{
-            "Set-Cookie": f"""{SESS_KEY}={handle}; path=/; HttpOnly; SameSite={same_site}"""
+            "Set-Cookie": f"""{SESS_KEY}={handle}; path=/; HttpOnly; SameSite={same_site}; {secure}"""
         },
     )
 
@@ -330,10 +349,11 @@ async def card_store() -> CardAddress:
 
 @api.route("/api/dev/cards/media/<filename>", methods=["GET", "OPTIONS"])
 async def card_media_read(filename: str):
-    if "OPTIONS" == req.method:
-        return Response("", headers=headers.cors)
+    # if "OPTIONS" == req.method:
+    #     return Response("", headers=headers.cors)
 
-    return send_file(join(DATADIR, secure_filename(filename)))
+    # return send_file(join(DATADIR, secure_filename(filename)))
+    raise NotImplementedError
 
 
 @api.route("/api/dev/cards/choices", methods=["GET", "OPTIONS"])
@@ -545,13 +565,51 @@ async def read_card(card_id, expire: int | None = None):
 
 @api.route("/api/dev/cards/<card_id>", methods=["GET", "OPTIONS"])
 async def get_card(card_id: str):
+    global mods
+
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
+    print(["NEXT TOKEN ", mods[0]])
+
+    mod = -1
+    if "authn" in req.cookies:
+        ttl: int = int(time.time() / 600)  # 10 minutes
+        mod = mod_index(req.cookies.get("authn"), ttl)
+        print(["MOD", mod])
+
     # data: bytes = await read_card(card_id, 15 * 60)
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
-        card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
-        return send_file(join(DATADIR, list(card["media"].items())[0][0]), "image/jpeg")
+        _card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
+        card = Studycard.create(**_card)
+
+        if -1 < mod:
+            return send_file(
+                join(DATADIR, list(card.media.items())[0][0]), "image/jpeg"
+            )
+
+        return send_file(join(DATADIR, list(card.content.items())[0][0]), "image/jpeg")
+
+
+@api.route("/api/dev/cards/<card_id>", methods=["PATCH", "OPTIONS"])
+async def verify_card(card_id: str):
+    global mods
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    mod = -1
+    if "authn" in req.cookies:
+        ttl: int = int(time.time() / 600)  # 10 minutes
+        mod = mod_index(req.cookies.get("authn"), ttl)
+
+    if 0 > mod:
+        raise NotImplementedError
+
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        _card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
+        _card["moderated_at"] = int(time.time())
+
+        return Response("", headers=headers.cors)
 
 
 ## DECKS

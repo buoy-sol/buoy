@@ -2,13 +2,6 @@ import { useContext, useEffect, useState } from "react"
 import { API } from "../utils/api"
 
 export default function Cardteaser({style, value: data}) {                                                                                                                                     
-    let files = Object.entries(data.media)
-    let [thumb, setThumb] = useState(null)
-                                                                                                                                     
-    if (! thumb && files.some(Boolean)) {
-        setThumb(files[0][0])
-    }
-
     console.log(["LOOKING FOR SPL", data])
     
     return (
@@ -39,7 +32,7 @@ export default function Cardteaser({style, value: data}) {
                 <div style={{width: "72px",
                              height: "72px",
                              borderRadius: "100% 100%",
-                             background: `url('${API}/cards/media/${thumb}')`,
+                             background: `url('${API}/cards/${data.identifier}')`,
                              backgroundSize: "cover"}}></div>
             </div>
         </div>

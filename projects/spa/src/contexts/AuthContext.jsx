@@ -9,12 +9,12 @@ async function authentication() {
         `${API}/authn/session`,
         {
             method: "GET",
-	    mode: "cors", // dev-only
+	    // mode: "cors", // dev-only
 	    credentials: "include",
         }
     )
 
-    if (! result.ok && window.location.pathname != "/") {
+    if (! result.ok && window.location.hash != "") {
 	window.location.replace("/")
     }
     

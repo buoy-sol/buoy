@@ -3,7 +3,6 @@ import typing
 
 SESS_KEY = "solana:session"
 
-
 ErrorResult = typing.NewType("ErrorResult", str)
 
 
@@ -35,12 +34,12 @@ class F:
         cookies: dict, mem: object
     ) -> typing.Tuple[dict | None, ErrorResult]:
         if SESS_KEY not in cookies:
-            return None, "Missing credentials in request"
+            return None, ErrorResult("Missing credentials in request")
 
         handle = cookies.get(SESS_KEY)
         retrieved = mem.session.get(handle, None)
         if retrieved is None:
-            return None, "Unathorized"
+            return None, ErrorResult("Unathorized")
 
         return retrieved, None
 
@@ -54,7 +53,7 @@ class F:
             return None, err
 
         if "address" not in retrieved:
-            return None, "Corrupted session data"
+            return None, ErrorResult("Corrupted session data")
 
         return retrieved["address"], None
 
