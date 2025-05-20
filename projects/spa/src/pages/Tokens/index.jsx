@@ -3,10 +3,12 @@ import bs58 from "bs58"
 import { getBase64EncodedWireTransaction, getTransactionDecoder, compileTransaction } from "@solana/kit"
 
 import { useSignTransaction, useSignAndSendTransaction } from "@solana/react"
-import { useWallets, getWalletAccountFeature } from "@wallet-standard/react-core"
+import { useConnect, useDisconnect, useWallets, getWalletAccountFeature } from "@wallet-standard/react-core"
 // import { signTransaction } from "@solana/transactions" // NOT IN USE
 
 import Cardteaser from "../../components/Cardteaser"
+import { AuthContext } from "../../contexts/AuthContext"
+import { WalletContext } from "../../contexts/WalletContext"
 import { API } from "../../utils/api"
 import style from "../../utils/style"
 
@@ -41,7 +43,7 @@ function Menu({style: styled}) {
                         {href: "/#settings", text: "SETINGS"}
                     ].map(function(e){
                         return (
-                            <li key={e} style={{listStyleType: "none"}}>
+                            <li key={e.text} style={{listStyleType: "none"}}>
                                 <button className="button"><a href={e.href}>{e.text}</a></button>
                             </li>
                         )
@@ -54,23 +56,41 @@ function Menu({style: styled}) {
 
 export default function Tokens() {
 
+    let transactionSendingSigner;
+    let signAndSendTransaction;
+    
     let [cards, setCards] = useState([])
     let [created, setCreated] = useState(null)
     let [files, setFiles] = useState([{raw: ""}])
+    let [loading, setLoading] = useState(true)
     let [visible, setVisible] = useState({
 	CREATOR: false,
 	EDITOR: false,
 	// etc
     })
+    let [selected, setselected] = useContext(WalletContext)
 
+    let session = useContext(AuthContext)
+    
     let wallets = useWallets()
     let chosen = wallets[0] // @todo user has to make this choice
-    let signTransaction = useSignTransaction(chosen.accounts[0], "solana:devnet")
-    // let signer = useWalletAccountTransactionSigner(chosen.accounts[0], "solana:devnet")
+                                                                       
+    // @todo move
+    let [isConnecting, connect] = useConnect(chosen)
+    let [isDisconnecting, disconnect] = useDisconnect(chosen)
+          
+    async function choose(uiwallet) {
+        let connected = await connect()
+        setSelected(connected[0]) // @todo user has to make this choice
 
-    let signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
-                                                                                               
+	signTransaction = useSignTransaction(chosen.accounts[0], "solana:devnet")
+	// let signer = useWalletAccountTransactionSigner(chosen.accounts[0], "solana:devnet")
+	signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
+    }
+                                                                                            
     async function signAndSend(txBase64) {
+	await choose(null)
+	
         let txBytes = Uint8Array.from(atob(txBase64), function(c) {
             return c.charCodeAt(0)
         })
@@ -190,6 +210,16 @@ export default function Tokens() {
 
     useEffect(function() {}, [created, files])
 
+    useEffect(function () {
+        if (session) {
+            setLoading(false)
+        }                        
+    }, [session])
+
+    if (loading) {
+	return <p>Loading!</p>
+    }
+    
     return (
 	<>
 	    <div id="tokens"
@@ -204,7 +234,7 @@ export default function Tokens() {
 		    {cards.some(Boolean) && cards.map(function(card) {
 			let explorer = `https://explorer.solana.com/address/${card.address}?cluster=devnet`
 			return (
-			    <div>
+			    <div key={card.address}>
 				<Cardteaser style={{maxWidth: "0px"}} value={card} />
 				{!card.spl &&
 				 <button className="button"

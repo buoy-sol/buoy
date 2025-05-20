@@ -1,6 +1,7 @@
 import bs58 from "bs58"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { AuthContext } from "../../contexts/AuthContext"
+import { WalletContext } from "../../contexts/WalletContext"
 import Cardteaser from "../../components/Cardteaser"
 import Canvas from "../../components/Canvas"
 import Viewer from "../../components/Viewer"
@@ -72,18 +73,32 @@ function Menu() {
 
 function Cardpicker(props) {
     let { style, value: data } = props
+
+    let transactionSendingSigner;
+    let signAndSendTransaction;
     
     if (! data) {
         return <p>No card</p>
     }
                                                                                                                                      
+    let [selected, setSelected] = useContext(WalletContext)
     let wallets = useWallets()
     let chosen = wallets[0] // @todo user has to make this choice
+                                                                       
+    // @todo move
+    let [isConnecting, connect] = useConnect(chosen)
+    let [isDisconnecting, disconnect] = useDisconnect(chosen)
+                                                                       
+    async function choose(uiwallet) {
+        let connected = await connect()
+        setSelected(connected[0]) // @todo user has to make this choice
 
-    let transactionSendingSigner = useWalletAccountTransactionSendingSigner(chosen.accounts[0], "solana:devnet")
-    let signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
+	transactionSendingSigner = useWalletAccountTransactionSendingSigner(chosen.accounts[0], "solana:devnet")
+	signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
+    }
     
     async function signAndSend(txBase64) {
+	await choose(null)
         let txBytes = Uint8Array.from(atob(txBase64), function(c) {
             return c.charCodeAt(0)
         })
