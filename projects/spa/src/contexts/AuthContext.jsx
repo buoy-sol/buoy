@@ -9,8 +9,11 @@ async function authentication() {
         `${API}/authn/session`,
         {
             method: "GET",
-	    mode: "cors", // dev-only
+	    // mode: "cors", // dev-only
 	    credentials: "include",
+	    headers: {
+		"Cookie": document.cookie
+	    }
         }
     )
 
