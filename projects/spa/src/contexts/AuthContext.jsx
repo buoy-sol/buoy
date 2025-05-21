@@ -10,10 +10,7 @@ async function authentication() {
         {
             method: "GET",
 	    // mode: "cors", // dev-only
-	    credentials: "include",
-	    headers: {
-		"Cookie": document.cookie
-	    }
+	    headers: { "Authorization": `Bearer ${localStorage.getItem("bearer")}` }
         }
     )
 

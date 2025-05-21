@@ -65,7 +65,11 @@ async function authenticate(walletAccount) {
     }
 
     let {handle} = await handled.json()
-    window.location.replace(`${API}/authn?handle=${handle}`)
+    let resolution = await fetch(`${API}/authn?handle=${handle}`)
+    let resolved = await resolution.json()
+
+    localStorage.setItem("bearer", resolved.bearer)
+    window.location.replace(resolved.location)
 }
 
 

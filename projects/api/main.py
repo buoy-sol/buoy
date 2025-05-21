@@ -61,7 +61,7 @@ headers = NS(
         {
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
-            "Access-Control-Allow-Headers": "content-type, cookie",
+            "Access-Control-Allow-Headers": "authorization, content-type, cookie",
             "Access-Control-Allow-Credentials": "true",
         }
     ),
@@ -160,22 +160,15 @@ async def authenticate():
         same_site = "None"
         secure = "Secure"
 
-    with_cookie = dict(
-        headers.cors,
-        **{
-            "Set-Cookie": f"""{SESS_KEY}={handle}; path=/; HttpOnly; SameSite={same_site}; {secure}"""
-        },
-    )
-
-    with_redirect = dict(with_cookie, **{"Location": req.referrer})
-
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         address = mem.session[handle]["address"]
 
         user = User(address=address, holding=None)
         db["users"][address] = asdict(user)
 
-    return Response(status=302, headers=with_redirect)
+    return Response(
+        json.dumps({"location": req.referrer, "bearer": handle}), headers=headers.full
+    )
 
 
 @api.route("/api/dev/authn/session", methods=["GET", "OPTIONS"])
@@ -184,21 +177,20 @@ async def authenticated():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    if SESS_KEY not in req.cookies:
+    if "Authorization" not in req.headers:
         return Response(
             json.dumps({"failed": "Missing credentials in request"}),
             status=400,
             headers=headers.full,
         )
 
-    handle = req.cookies.get(SESS_KEY)
-    retrieved = mem.session.get(handle, None)
-    if retrieved is None:
+    session, err = F.resolve_session_from_bearer(req.headers, mem)
+    if err is not None or session is None:
         return Response(
             json.dumps({"failed": "Unathorized"}), status=401, headers=headers.full
         )
 
-    return Response(json.dumps(retrieved), headers=headers.full)
+    return Response(json.dumps({"ok": True}), headers=headers.full)
 
 
 @api.route("/api/dev/authn/challenge", methods=["POST", "OPTIONS"])
@@ -228,7 +220,7 @@ async def list_cards():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -293,7 +285,7 @@ async def card_store() -> CardAddress:
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -361,7 +353,7 @@ async def cards_next():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -460,7 +452,7 @@ async def get_card_rent_tx(card_id: str):
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -512,7 +504,7 @@ async def card_pick():
 
     access_type: str = "free"
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -630,7 +622,7 @@ async def create_token_mint_account_tx():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -655,7 +647,7 @@ async def create_token_account_tx():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -691,7 +683,7 @@ async def mint_tx():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -737,7 +729,7 @@ async def escrow_tx():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -783,7 +775,7 @@ async def retrieval_tx():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -801,7 +793,7 @@ async def retrieve_tx():
     if "OPTIONS" == req.method:
         return Response("", headers=headers.cors)
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
@@ -853,7 +845,7 @@ expiry_checked_at = int(time.time())
 def rent_expiry():
     global expiry_checked_at
 
-    address, err = F.resolve_address_from_cookies(req.cookies, mem)
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:
         return
@@ -930,4 +922,6 @@ if __name__ == "__main__":
 
         db["processes"] = list(procs)
 
-    uvicorn.run("main:a_api", reload=False, workers=WORKER_PROCESSES, port=5140)
+    uvicorn.run(
+        "main:a_api", reload=False, workers=WORKER_PROCESSES, host="0.0.0.0", port=5140
+    )

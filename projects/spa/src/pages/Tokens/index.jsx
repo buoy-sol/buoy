@@ -99,15 +99,18 @@ export default function Tokens() {
     }
     
     async function fetchCards() {
-	let cardsResp = await fetch(`${API}/cards`, {credentials: "include"})
+	let cardsResp = await fetch(`${API}/cards`, {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }})
 	setCards(await cardsResp.json())
     }
 
     async function storeCard(formData) {
 	let storedCardResp = await fetch(`${API}/cards`, {
 	    method: "POST",
-	    credentials: "include",
-	    body: formData
+	    body: formData,
+	    headers: {
+		"Content-type": "application/json",
+		"Authorization": `Bearer ${localStorage.getItem("bearer")}`
+	    }
 	})
 	setCreated(await storedCardResp.json())
     }
@@ -127,7 +130,7 @@ export default function Tokens() {
     async function escrowToken(cardIdentifier) {
 	let txResp = await fetch(
 	    `${API}/token/escrow/tx?card_id=${cardIdentifier}`,
-	    {credentials: "include"}
+            {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
 	)
 
 	let txData = await txResp.json()
@@ -137,7 +140,7 @@ export default function Tokens() {
     async function retrieveToken(cardIdentifier) {
 	let txResp = await fetch(
 	    `${API}/token/retrieval/tx?card_id=${cardIdentifier}`,
-	    {credentials: "include"}
+	    {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
 	)
 
 	let txData = await txResp.json()
@@ -145,7 +148,7 @@ export default function Tokens() {
 
 	await fetch(
 	    `${API}/token/retrieve/tx?card_id=${cardIdentifier}`,
-	    {credentials: "include"}
+	    {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
 	)
     }
    
@@ -161,7 +164,7 @@ export default function Tokens() {
 	// create mint account
 	txResp = await fetch(
 	    `${API}/token/account/mint/tx`,
-	    {credentials: "include"}
+	    {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
 	)
 	txData = await txResp.json()
 	let mintAccount = txData.mint_account
@@ -171,7 +174,7 @@ export default function Tokens() {
 	// create token account(s)
 	txResp = await fetch(
 	    `${API}/token/account/tx?mint_account=${mintAccount}`,
-	    {credentials: "include"}
+	    {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
 	)
 	txData = await txResp.json()
 	let tokenAccount = txData.token_account
@@ -182,7 +185,7 @@ export default function Tokens() {
 	// mint & freeze
 	txResp = await fetch(
 	    `${API}/token/mint/tx?mint_account=${mintAccount}&token_account=${tokenAccount}&card_id=${cardIdentifier}`,
-	    {credentials: "include"}
+	    {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
 	)
 	txData = await txResp.json()
 

@@ -109,7 +109,7 @@ function Cardpicker(props) {
     async function pick(cardIdentifier, accessType) {
         let txSignature = null
         if ("rent" == accessType) {
-            let rentForCardResp = await fetch(`${API}/cards/${cardIdentifier}/rent`, {credentials: "include"})
+            let rentForCardResp = await fetch(`${API}/cards/${cardIdentifier}/rent`, {headers: { "Authentication": `Bearer ${localStorage.getItem("bearer")}` }})
             let rentForCard = await rentForCardResp.json()
 
 	    // funds the transfer
@@ -120,10 +120,9 @@ function Cardpicker(props) {
         await fetch(
             `${API}/cards/pick`,
             {
-		credentials: "include",
                 method: "POST",
                 body: JSON.stringify({card: cardIdentifier, sig: txSignature}),
-                headers: {"Content-type": "application/json"}
+                headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }
             }
         )
     }
@@ -188,7 +187,7 @@ export default function TheZone() {
     }
 
     async function fetchCards() {
-	let resp = await fetch(`${API}/cards/choices`, {credentials: "include"})
+	let resp = await fetch(`${API}/cards/choices`, {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }})
 	setCards(await resp.json())
     }
 
