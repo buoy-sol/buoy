@@ -190,7 +190,9 @@ async def authenticated():
             json.dumps({"failed": "Unathorized"}), status=401, headers=headers.full
         )
 
-    return Response(json.dumps({"ok": True}), headers=headers.full)
+    return Response(
+        json.dumps({"address": session.get("address")}), headers=headers.full
+    )
 
 
 @api.route("/api/dev/authn/challenge", methods=["POST", "OPTIONS"])
