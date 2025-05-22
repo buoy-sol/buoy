@@ -1,6 +1,8 @@
 import hashlib
 import typing
 
+from os.path import join
+
 SESS_KEY = "solana:session"
 
 ErrorResult = typing.NewType("ErrorResult", str)
@@ -99,6 +101,14 @@ class F:
             return None, ErrorResult("Corrupted session!")
 
         return session.get("address"), None
+
+    @staticmethod
+    def resolve_reviews_path(dbpath: str, address: str) -> str:
+        return dbpath + f".reviews.{address}"
+
+    @staticmethod
+    def resolve_events_path(dbpath: str) -> str:
+        return dbpath + f".events"
 
     @staticmethod
     def get_card_rent_account():

@@ -19,10 +19,12 @@ from base64 import b64encode, b64decode
 from collections import deque
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from flask import Flask, Response, redirect, request as req, send_file
 from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
 from os.path import exists, join, splitext
+from sm_2 import Card, ReviewLog, Scheduler
 from solana.rpc.commitment import Confirmed
 from solana.rpc.types import TxOpts, TokenAccountOpts
 from solders.keypair import Keypair
@@ -99,6 +101,16 @@ def mod_index(key: str, ttl: int) -> int:
     mods.append(secrets.token_hex(10))
     return position
 
+
+## DEFAULTS FOR PRIMARY DB
+
+with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+    if "users" not in db:
+        db.setdefault("users", {})
+        db.setdefault("decks", [])
+        db.setdefault("cards", [])
+        db.setdefault("ratings", [])
+        db.setdefault("processes", [])
 
 ## AUTH
 
@@ -410,7 +422,10 @@ async def cards_next():
             e["spl"] = {"data": {"amount": tokens.get(e["address"], 0.0)}}
             return e
 
-        # find next where access: rent and rating > user_skill
+        # find next where
+        #   access: rent
+        #   rating > user_skill
+        #   sm2 due > time
         next_rent = next(
             map(
                 with_held_amount,
@@ -425,7 +440,10 @@ async def cards_next():
             None,
         )
 
-        # find next where access: free and rating > user_skill
+        # find next where
+        #   access: free
+        #   rating > user_skill
+        #   sm2 due > time
         next_free = next(
             filter(
                 lambda e: rated.get(e["identifier"], 0) >= user_skill,
@@ -604,6 +622,79 @@ async def verify_card(card_id: str):
         _card["moderated_at"] = int(time.time())
 
         return Response("", headers=headers.cors)
+
+
+## REVIEWS AND RATINGS
+
+
+@api.route("/api/dev/cards/<card_id>/review/<value>", methods=["PATCH", "OPTIONS"])
+async def card_review(card_id: str, value: int):
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
+
+    if err is not None:
+        return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
+
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        if not any(filter(F.where({"identifier": card_id}), db["cards"])):
+            raise Exception(f"Card {card_id} not found")
+
+    with dbm_open_bytes(
+        F.resolve_reviews_path(api.config["DATABASE"], address), "c"
+    ) as db:
+        db.setdefault("reviews", [])
+
+        flashcard = next(filter(F.where({"identifier": card_id}), db["reviews"]), None)
+
+        # defaults
+        ref = Card()
+        flashcard_idx = len(db["reviews"])
+
+        # overwrites
+        if flashcard is not None:
+            ref = Card.from_dict(flashcard["ref"])
+            flashcard_idx = db["reviews"].index(flashcard)
+
+        ref, _ = Scheduler.review_card(ref, int(value), datetime.now(timezone.utc))
+
+        flashcard = dict(flashcard or {}, ref=ref.to_dict())
+
+        if not any(db["reviews"]):
+            db["reviews"].append(flashcard)
+
+        db["reviews"][flashcard_idx] = flashcard
+
+    return Response("", headers=headers.cors)
+
+
+@api.route("/api/dev/cards/<card_id>/rating/<value>", methods=["PATCH", "OPTIONS"])
+async def card_rating(card_id: str, value: int):
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
+
+    if err is not None:
+        return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
+
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        if not any(filter(F.where({"identifier": card_id}), db["cards"])):
+            raise Exception(f"Card {card_id} not found")
+
+    with dbm_open_bytes(F.resolve_events_path(api.config["DATABASE"]), "c") as db:
+        db.setdefault("events", [])
+
+        rating_id = str(uuid.uuid4())
+
+        db["events"].append([rating_id, ":rating/value", value])
+
+        db["events"].append([rating_id, ":rating/by", address])
+
+        db["events"].append([rating_id, ":rating/for", card_id])
+
+    return Response("", headers=headers.cors)
 
 
 ## DECKS
@@ -847,6 +938,7 @@ expiry_checked_at = int(time.time())
 def rent_expiry():
     global expiry_checked_at
 
+    print(datetime.now())
     address, err = F.resolve_address_from_bearer(req.headers, mem)
 
     if err is not None:

@@ -17,12 +17,6 @@ def dbm_open_bytes(path: str, mode: str) -> typing.Generator:
 
         loaded = json.loads(db[DB_KEY].decode("utf-8"))
 
-        loaded.setdefault("users", {})
-        loaded.setdefault("decks", [])
-        loaded.setdefault("cards", [])
-        loaded.setdefault("ratings", [])
-        loaded.setdefault("processes", [])
-
         yield loaded
 
         changed = loaded

@@ -109,7 +109,7 @@ function Cardpicker(props) {
     async function pick(cardIdentifier, accessType) {
         let txSignature = null
         if ("rent" == accessType) {
-            let rentForCardResp = await fetch(`${API}/cards/${cardIdentifier}/rent`, {headers: { "Authentication": `Bearer ${localStorage.getItem("bearer")}` }})
+            let rentForCardResp = await fetch(`${API}/cards/${cardIdentifier}/rent`, {headers: { "Authorization": `Bearer ${localStorage.getItem("bearer")}` }})
             let rentForCard = await rentForCardResp.json()
 
 	    // funds the transfer
@@ -233,6 +233,20 @@ export default function TheZone() {
 	)
     }
 
+    async function reviewCard(cardIdentifier, review) {
+	await fetch(`${API}/cards/${cardIdentifier}/review/${review}`, {
+	    method: "PATCH",
+	    headers: {"Authorization": `Bearer ${localStorage.getItem("bearer")}`}
+	})
+    }
+
+    async function rateCard(cardIdentifier, rating) {
+        await fetch(`${API}/cards/${cardIdentifier}/rating/${rating}`, {
+            method: "PATCH",
+            headers: {"Authorization": `Bearer ${localStorage.getItem("bearer")}`}
+        })
+    }
+
     return (
 	<div id="the-zone" style={{textTransform: "uppercase"}}>
 	    <VisibleContext.Provider value={{visible, setVisible}}>
@@ -266,19 +280,31 @@ export default function TheZone() {
 		     <p>-</p>
 		     <p>GRADE CARD SUCCESS FOR (SM-2 ALGORITHM):</p>
 		     
-		     <div style={{display: "flex", justifyContent: "center"}}>
-			 <button className="button">AGAIN</button>
-			 <button className="button">HARD</button>
-			 <button className="button">GOOD</button>
-			 <button className="button">EASY</button>
+		     <div style={{display: "flex", justifyContent: "center", flexDirection: "column", alignItems: "center"}}>
+			 {[
+			     {review: 0, correct: false, description: "BLACKOUT"},
+			     {review: 1, correct: false, description: "FAMILIAR"},
+			     {review: 2, correct: false, description: "EASY"},
+			     {review: 3, correct: true, description: "EFFORT"},
+			     {review: 4, correct: true, description: "HESITATED"},
+			     {review: 5, correct: true, description: "EFFORTLESS"}
+			  ].map(function(el) {
+			     return <button className="button"
+					    onClick={function(e) {
+						reviewCard(cards.picked, el.review)
+					    }}>{(el.correct ? '(\u2713) ' : '(\u2717) ') + el.description}</button>
+			 })}
 		     </div>
 
 		     <p>-</p>
 		     <p>RATE CARD DIFFICULTY</p>
 
 		     <div style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
-			 {[...Array(10).keys()].map(function(e) {
-			     return <button className="button">{e+1}</button>
+			 {[...Array(10).keys()].map(function(el) {
+			     return <button className="button"
+					    onClick={function(e) {
+						rateCard(cards.picked, el+1)
+					    }}>{el+1}</button>
 			 })}
 		     </div>
 		 </>}
