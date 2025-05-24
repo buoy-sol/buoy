@@ -4,6 +4,11 @@ from solders.pubkey import Pubkey
 
 
 class Rating(typing.NamedTuple):
+    """?
+
+    deprecated
+    """
+
     # who made the rating
     contributor: Pubkey
 
