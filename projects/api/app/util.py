@@ -1,4 +1,5 @@
 import hashlib
+import operator
 import typing
 
 from os.path import join
@@ -6,6 +7,8 @@ from os.path import join
 SESS_KEY = "solana:session"
 
 ErrorResult = typing.NewType("ErrorResult", str)
+
+T = typing.TypeVar("T")
 
 
 class F:
@@ -24,10 +27,53 @@ class F:
                     raise KeyError(k)
 
                 matched = e.get(k) == v
+                if isinstance(v, typing.Callable):
+                    matched = v(e.get(k))
+
                 if not matched:
                     ok = False
 
             return ok
+
+        return inner
+
+    @staticmethod
+    def intersection(a: list[T], b: list[T]) -> list[T]:
+        return list(set(a).intersection(set(b)))
+
+    @staticmethod
+    def where_eav(form: list[T]) -> list[list[T]]:
+        xe, xa, xv = form
+
+        def inner(el: list[T]) -> bool:
+            e, a, v, t, added = el
+            for left, right in [(xe, e), (xa, a), (xv, v)]:
+                if left is "?":
+                    continue
+
+                ok = left == right
+                if isinstance(left, typing.Callable):
+                    ok = left(right)
+
+            return ok
+
+        return inner
+
+    @staticmethod
+    def load_entity(dataset: list[list[typing.Any]]) -> typing.Callable:
+
+        def inner(el: str) -> dict[str, typing.Any]:
+            entity: dict = {}
+            for fact in dataset:
+                e, a, v, t, added = fact
+                if el == e:
+                    entity[a] = v if added else None
+
+            entity[":system/entity-id"] = el
+            entity[":system/entity-timestamp"] = t
+            # entity[":system/entity-added"] = added
+
+            return entity
 
         return inner
 
@@ -125,3 +171,7 @@ class F:
                 chunk = f.read(8192)
 
         return result.hexdigest()
+
+    @staticmethod
+    def counted(vals: list[str]) -> int:
+        return sum(map(operator.floordiv, vals, vals))
