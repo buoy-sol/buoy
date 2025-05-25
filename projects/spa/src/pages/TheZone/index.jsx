@@ -71,6 +71,50 @@ function Menu() {
     )
 }
 
+function TokenRenter({value: [cardIdentifier, accessType]}) {
+
+    let [selected, setSelected] = useContext(WalletContext)
+    let wallets = useWallets()
+    let chosen = wallets[0] // @todo user has to make this choice
+                                                                       
+    let transactionSendingSigner = useWalletAccountTransactionSendingSigner(chosen.accounts[0], "solana:devnet")
+    let signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
+
+    async function signAndSend(txBase64) {
+        let txBytes = Uint8Array.from(atob(txBase64), function(c) {
+            return c.charCodeAt(0)
+        })
+                                                                   
+        return await signAndSendTransaction({transaction: txBytes})
+    }
+
+    async function pick(cardIdentifier, accessType) {
+                                                                                                                                                                
+        let txSignature = null
+        if ("rent" == accessType) {
+            let rentForCardResp = await fetch(`${API}/cards/${cardIdentifier}/rent`, {headers: { "Authorization": `Bearer ${localStorage.getItem("bearer")}` }})
+            let rentForCard = await rentForCardResp.json()
+                                                                                                                                                                
+            // funds the transfer
+            let txSignatureRaw = await signAndSend(rentForCard.txn_rent_fee)
+            txSignature = bs58.encode(txSignatureRaw.signature)
+        }
+                                                                                                                                                                
+        await fetch(
+            `${API}/cards/pick`,
+            {
+                method: "POST",
+                body: JSON.stringify({card: cardIdentifier, sig: txSignature}),
+                headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }
+            }
+        )
+    }
+
+
+    useEffect(function() { pick(cardIdentifier, accessType) }, [])
+    return <p>!</p>
+}
+
 function Cardpicker(props) {
     let { style, value: data } = props
 
@@ -92,41 +136,8 @@ function Cardpicker(props) {
     async function choose(uiwallet) {
         let connected = await connect()
         setSelected(connected[0]) // @todo user has to make this choice
-
-	transactionSendingSigner = useWalletAccountTransactionSendingSigner(chosen.accounts[0], "solana:devnet")
-	signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
     }
     
-    async function signAndSend(txBase64) {
-	await choose(null)
-        let txBytes = Uint8Array.from(atob(txBase64), function(c) {
-            return c.charCodeAt(0)
-        })
-
-        return await signAndSendTransaction({transaction: txBytes})
-    }
-    
-    async function pick(cardIdentifier, accessType) {
-        let txSignature = null
-        if ("rent" == accessType) {
-            let rentForCardResp = await fetch(`${API}/cards/${cardIdentifier}/rent`, {headers: { "Authorization": `Bearer ${localStorage.getItem("bearer")}` }})
-            let rentForCard = await rentForCardResp.json()
-
-	    // funds the transfer
-	    let txSignatureRaw = await signAndSend(rentForCard.txn_rent_fee)
-            txSignature = bs58.encode(txSignatureRaw.signature)
-        }
-                                                                                                                                     
-        await fetch(
-            `${API}/cards/pick`,
-            {
-                method: "POST",
-                body: JSON.stringify({card: cardIdentifier, sig: txSignature}),
-                headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }
-            }
-        )
-    }
-
     let explorer = `https://explorer.solana.com/address/${data.address}?cluster=devnet`
     return (
 	<div>
@@ -138,8 +149,10 @@ function Cardpicker(props) {
 		    className="button"
 		    style={{background: ((data.spl.data.amount == 0) ? "lightgrey" : "#fff")}}
 		    onClick={function(e) {
-			pick(data.identifier, data.access)
+			choose("?")
 		    }}>{data.access.toUpperCase()}</button>
+	    {selected &&
+	     <TokenRenter value={[data.identifier, data.access]} />}
 	    <p>-</p>
 	</div>
     )

@@ -48,7 +48,7 @@ class F:
         def inner(el: list[T]) -> bool:
             e, a, v, t, added = el
             for left, right in [(xe, e), (xa, a), (xv, v)]:
-                if left is "?":
+                if "?" == left:
                     continue
 
                 ok = left == right

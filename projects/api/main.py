@@ -115,6 +115,12 @@ with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         db.setdefault("ratings", [])
         db.setdefault("processes", [])
 
+## DEFAULTS FOR EVENTS DB
+with dbm_open_bytes(F.resolve_events_path(api.config["DATABASE"]), "c") as eventdb:
+    if "events" not in eventdb:
+        eventdb.setdefault("events", [])
+
+
 ## AUTH
 
 
@@ -255,7 +261,9 @@ async def list_cards():
     ).value:
         k = token.account.data.parsed["info"]["mint"]
         v = float(token.account.data.parsed["info"]["tokenAmount"]["amount"])
-        tokens[k] = v
+
+        if 0 < v:
+            tokens[k] = v
 
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         criteria = {}
@@ -391,7 +399,9 @@ async def cards_next():
     ).value:
         k = token.account.data.parsed["info"]["mint"]
         v = float(token.account.data.parsed["info"]["tokenAmount"]["amount"])
-        tokens[k] = v
+
+        if 0 < v:
+            tokens[k] = v
 
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         _user = next(filter(F.where({"address": address}), db["users"].values()), None)
@@ -404,12 +414,12 @@ async def cards_next():
         )
 
         has_tag: typing.Iterator[DictStudycard] = filter(
-            lambda e: 0 < F.summed(F.intersection(tags, e["tags"])), by_access_type
+            lambda e: 0 < F.counted(F.intersection(tags, e["tags"])), by_access_type
         )
 
         by_tag_count: list[DictStudycard] = sorted(
             has_tag,
-            key=lambda e: F.summed(F.intersection(tags, e["tags"])),
+            key=lambda e: F.counted(F.intersection(tags, e["tags"])),
             reverse=True,  # by highest tag intersection count
         )
 
@@ -437,26 +447,29 @@ async def cards_next():
                 map(F.load_entity(eventdb["events"]), rating_ids_by_address)
             )
 
-            card_ids = list(set(map(operator.itemgetter(":rating/for"), ratings)))
+            card_ids = list(
+                set(map(operator.itemgetter(":rating/for"), ratings_by_address))
+            )
 
-            rating_ids_by_card: list[str] = list(
-                set(
-                    itertools.iconcat(
+            rating_ids_per_card: list[list[str]] = list(
+                map(
+                    lambda card_id: (
                         map(
-                            lambda card_id: (
-                                map(
-                                    operator.itemgetter(0),
-                                    filter(
-                                        F.where_eav(["?", ":rating/for", card_id]),
-                                        eventdb["events"],
-                                    ),
-                                )
+                            operator.itemgetter(0),
+                            filter(
+                                F.where_eav(["?", ":rating/for", card_id]),
+                                eventdb["events"],
                             ),
-                            card_ids,
                         )
-                    )
+                    ),
+                    card_ids,
                 )
             )
+
+            rating_ids_by_card: list[str] = []
+
+            if any(rating_ids_per_card):
+                rating_ids_by_card = list(set(operator.iconcat(rating_ids_per_card)))
 
             ratings_by_others: list[dict] = list(
                 filter(
@@ -494,17 +507,19 @@ async def cards_next():
         )
 
         with dbm_open_bytes(
-            F.resolve_reviews_path(api.config["DATABASE"], address), "C"
+            F.resolve_reviews_path(api.config["DATABASE"], address), "c"
         ) as sm2db:
+            sm2db.setdefault("reviews", [])  # ?????
+
             # find next appropriate card by SM2 and override next_rent, if necessary
             has_tag: typing.Iterator[dict] = filter(
-                lambda e: 0 < F.summed(F.intersection(tags, e["tags"])),
+                lambda e: 0 < F.counted(F.intersection(tags, e["tags"])),
                 filter(F.where({"access": "rent"}), sm2db["reviews"]),
             )
 
             by_tag_count: list[dict] = sorted(
                 has_tag,
-                key=lambda e: F.summed(F.intersection(tags, e["tags"])),
+                key=lambda e: F.counted(F.intersection(tags, e["tags"])),
                 reverse=True,  # by highest tag intersection count
             )
 
@@ -538,13 +553,13 @@ async def cards_next():
 
             # find next appropriate card by SM2 and override next_free, if necessary
             has_tag: typing.Iterator[dict] = filter(
-                lambda e: 0 < F.summed(F.intersection(tags, e["tags"])),
+                lambda e: 0 < F.counted(F.intersection(tags, e["tags"])),
                 filter(F.where({"access": "free"}), sm2db["reviews"]),
             )
 
             by_tag_count: list[dict] = sorted(
                 has_tag,
-                key=lambda e: F.summed(F.intersection(tags, e["tags"])),
+                key=lambda e: F.counted(F.intersection(tags, e["tags"])),
                 reverse=True,  # by highest tag intersection count
             )
 

@@ -117,7 +117,7 @@ function TokenMinter({value: cardIdentifier}) {
     return <p>!</p>
 }
 
-function TokenEscrower() {
+function TokenEscrower({value: cardIdentifier}) {
     let wallets = useWallets()
     let chosen = wallets[0] // @todo user has to make this choice
                                                                                                
@@ -149,7 +149,7 @@ function TokenEscrower() {
     return <p>!</p>
 }
 
-function TokenRetriever() {
+function TokenRetriever({value: cardIdentifier}) {
     let wallets = useWallets()
     let chosen = wallets[0] // @todo user has to make this choice
                                                                                                
