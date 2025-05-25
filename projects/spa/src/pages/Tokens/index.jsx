@@ -54,105 +54,26 @@ function Menu({style: styled}) {
     )
 }
 
-export default function Tokens() {
-
-    let transactionSendingSigner;
-    let signAndSendTransaction;
-    
-    let [cards, setCards] = useState([])
-    let [created, setCreated] = useState(null)
-    let [files, setFiles] = useState([{raw: ""}])
-    let [loading, setLoading] = useState(true)
-    let [visible, setVisible] = useState({
-	CREATOR: false,
-	EDITOR: false,
-	// etc
-    })
-    let [selected, setselected] = useContext(WalletContext)
-
-    let session = useContext(AuthContext)
-    
+function TokenMinter({value: cardIdentifier}) {
     let wallets = useWallets()
     let chosen = wallets[0] // @todo user has to make this choice
-                                                                       
-    // @todo move
-    let [isConnecting, connect] = useConnect(chosen)
-    let [isDisconnecting, disconnect] = useDisconnect(chosen)
-          
-    async function choose(uiwallet) {
-        let connected = await connect()
-        setSelected(connected[0]) // @todo user has to make this choice
 
-	signTransaction = useSignTransaction(chosen.accounts[0], "solana:devnet")
-	// let signer = useWalletAccountTransactionSigner(chosen.accounts[0], "solana:devnet")
-	signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
-    }
-                                                                                            
-    async function signAndSend(txBase64) {
-	await choose(null)
-	
+    let signTransaction = useSignTransaction(chosen.accounts[0], "solana:devnet")
+    let signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
+
+    async function sign(txBase64) {
         let txBytes = Uint8Array.from(atob(txBase64), function(c) {
             return c.charCodeAt(0)
         })
-                                                                                               
-        return await signAndSendTransaction({transaction: txBytes})
-    }
-    
-    async function fetchCards() {
-	let cardsResp = await fetch(`${API}/cards`, {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }})
-	setCards(await cardsResp.json())
-    }
-
-    async function storeCard(formData) {
-	let storedCardResp = await fetch(`${API}/cards`, {
-	    method: "POST",
-	    body: formData,
-	    headers: {
-		"Content-type": "application/json",
-		"Authorization": `Bearer ${localStorage.getItem("bearer")}`
-	    }
-	})
-	setCreated(await storedCardResp.json())
+                                                                                   
+        let signature = await signTransaction({transaction: txBytes})
+        let signedTx = String.fromCharCode.apply(null, signature.signedTransaction)
+        let signedTxBase64 = btoa(signedTx)
+                                                                                   
+        return signedTxBase64
     }
 
-    async function sign(txBase64) {
-	let txBytes = Uint8Array.from(atob(txBase64), function(c) {
-	    return c.charCodeAt(0)
-	})
-
-	let signature = await signTransaction({transaction: txBytes})
-	let signedTx = String.fromCharCode.apply(null, signature.signedTransaction)
-	let signedTxBase64 = btoa(signedTx)
-
-	return signedTxBase64
-    }
-
-    async function escrowToken(cardIdentifier) {
-	let txResp = await fetch(
-	    `${API}/token/escrow/tx?card_id=${cardIdentifier}`,
-            {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
-	)
-
-	let txData = await txResp.json()
-	console.log(await signAndSend(txData.txn_escrow_to))
-    }
-
-    async function retrieveToken(cardIdentifier) {
-	let txResp = await fetch(
-	    `${API}/token/retrieval/tx?card_id=${cardIdentifier}`,
-	    {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
-	)
-
-	let txData = await txResp.json()
-	console.log(await signAndSend(txData.txn_retrieval))
-
-	await fetch(
-	    `${API}/token/retrieve/tx?card_id=${cardIdentifier}`,
-	    {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
-	)
-    }
-   
-    async function mintToken(cardIdentifier) {
+    async function mint() {
 	let txResp
 	let txBase64
 	let txData
@@ -160,7 +81,7 @@ export default function Tokens() {
 	if (! cardIdentifier) {
 	    throw new Error(`Invalid card identifier ${cardIdentifier}!`)
 	}
-	
+
 	// create mint account
 	txResp = await fetch(
 	    `${API}/token/account/mint/tx`,
@@ -174,14 +95,14 @@ export default function Tokens() {
 	// create token account(s)
 	txResp = await fetch(
 	    `${API}/token/account/tx?mint_account=${mintAccount}`,
-	    {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
+	    {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}    
 	)
 	txData = await txResp.json()
 	let tokenAccount = txData.token_account
 
 	await sign(txData.txn)
 	await sign(txData.txn_escrows)
-    
+
 	// mint & freeze
 	txResp = await fetch(
 	    `${API}/token/mint/tx?mint_account=${mintAccount}&token_account=${tokenAccount}&card_id=${cardIdentifier}`,
@@ -191,6 +112,124 @@ export default function Tokens() {
 
 	console.log(await sign(txData.txn_mint_to))
     }
+
+    useEffect(function() { mint() }, [])
+    return <p>!</p>
+}
+
+function TokenEscrower() {
+    let wallets = useWallets()
+    let chosen = wallets[0] // @todo user has to make this choice
+                                                                                               
+    let signTransaction = useSignTransaction(chosen.accounts[0], "solana:devnet")
+    let signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
+
+    async function signAndSend(txBase64) {
+        let txBytes = Uint8Array.from(atob(txBase64), function(c) {
+            return c.charCodeAt(0)
+        })
+                                                                                               
+        return await signAndSendTransaction({transaction: txBytes})
+    }
+    
+    async function escrow() {
+	let txResp = await fetch(
+            `${API}/token/escrow/tx?card_id=${cardIdentifier}`,
+            {headers: {
+		"Content-type": "application/json",
+		"Authorization": `Bearer ${localStorage.getItem("bearer")}`
+            }}
+	)
+                                                                           
+	let txData = await txResp.json()
+	console.log(await signAndSend(txData.txn_escrow_to))
+    }
+
+    useEffect(function() { escrow() }, [])
+    return <p>!</p>
+}
+
+function TokenRetriever() {
+    let wallets = useWallets()
+    let chosen = wallets[0] // @todo user has to make this choice
+                                                                                               
+    let signTransaction = useSignTransaction(chosen.accounts[0], "solana:devnet")
+    let signAndSendTransaction = useSignAndSendTransaction(chosen.accounts[0], "solana:devnet")
+
+    async function signAndSend(txBase64) {
+        let txBytes = Uint8Array.from(atob(txBase64), function(c) {
+            return c.charCodeAt(0)
+        })
+                                                                                               
+        return await signAndSendTransaction({transaction: txBytes})
+    }
+    
+    async function retrieve() {
+	let txResp = await fetch(
+            `${API}/token/retrieval/tx?card_id=${cardIdentifier}`,
+            {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
+	)
+        
+	let txData = await txResp.json()
+	console.log(await signAndSend(txData.txn_retrieval))
+                                                                                                                         
+	await fetch(
+            `${API}/token/retrieve/tx?card_id=${cardIdentifier}`,
+            {headers: {"Content-type": "application/json", "Authorization": `Bearer ${localStorage.getItem("bearer")}` }}
+	)
+    }
+
+    useEffect(function() { retrieve() }, [])
+    return <p>!</p>
+}
+
+export default function Tokens() {
+    
+    let [cards, setCards] = useState([])
+    let [created, setCreated] = useState(null)
+    let [files, setFiles] = useState([{raw: ""}])
+    let [loading, setLoading] = useState(true)
+    let [visible, setVisible] = useState({
+	CREATOR: false,
+	EDITOR: false,
+	// etc
+    })
+    let [selected, setSelected] = useContext(WalletContext)
+
+    let session = useContext(AuthContext)
+
+    let wallets = useWallets()
+    let chosen = wallets[0] // @todo user has to make this choice
+                                                                       
+    // @todo move
+    let [isConnecting, connect] = useConnect(chosen)
+    let [isDisconnecting, disconnect] = useDisconnect(chosen)
+
+    async function choose() {
+	let connected = await connect()
+	setSelected(connected[0])
+    }
+   
+    async function fetchCards() {
+	let cardsResp = await fetch(`${API}/cards`, {headers: {
+	    "Content-type": "application/json",
+	    "Authorization": `Bearer ${localStorage.getItem("bearer")}`
+	}})
+	setCards(await cardsResp.json())
+    }
+
+    async function storeCard(formData) {
+	let storedCardResp = await fetch(`${API}/cards`, {
+	    method: "POST",
+	    body: formData,
+	    headers: {
+		// "Content-type": "application/json", // ???????
+		"Authorization": `Bearer ${localStorage.getItem("bearer")}`
+	    }
+	})
+	setCreated(await storedCardResp.json())
+    }
+
     
     function mediaChange(e, idx) {
 	e.preventDefault()
@@ -211,7 +250,7 @@ export default function Tokens() {
 	fetchCards()
     }, [])
 
-    useEffect(function() {}, [created, files])
+    useEffect(function() {}, [created, files, selected])
 
     useEffect(function () {
         if (session) {
@@ -222,7 +261,7 @@ export default function Tokens() {
     if (loading) {
 	return <p>Loading!</p>
     }
-    
+
     return (
 	<>
 	    <div id="tokens"
@@ -242,8 +281,11 @@ export default function Tokens() {
 				{!card.spl &&
 				 <button className="button"
 					 onClick={function(e) {
-					     mintToken(card.identifier)
+					     choose("?")
 					 }}>MINT TOKEN</button>
+				}
+				{!card.spl && selected &&
+				 <TokenMinter value={card.identifier} />
 				}
 				{card.spl &&
 				 (
@@ -253,17 +295,23 @@ export default function Tokens() {
 						  style={{cursor: "help", background: "lightgrey"}}
 						  title="FOR RENTING"
 						  onClick={function(e) {
-						      escrowToken(card.identifier)
+						      choose("?")
 						  }}>ESCROW</button>
+					 }
+					 {(0 < card.spl.data.amount) && selected &&
+					  <TokenEscrower value={card.identifier} />
 					 }
 					 {(0 == card.spl.data.amount) &&
                                           <button className="button"
                                                   style={{cursor: "help", background: "lightgrey"}}
                                                   title="FROM RENTING"
                                                   onClick={function(e) {
-                                                      retrieveToken(card.identifier)
+						      choose("?")
                                                   }}>RETRIEVE</button>
                                          }
+					 {(0 == card.spl.data.amount) && selected &&
+					  <TokenRetriever value={card.identifier} />
+					 }
 					 <button className="button"><a target="_blank" href={explorer}>see on chain &#x2197;</a></button>
 				     </>
 				 )
@@ -329,9 +377,6 @@ export default function Tokens() {
 
 			     <label for="for-free">Free</label>
 			     <input id="for-free" type="radio" name="access" value="free" />
-
-			     <input type="hidden" name="owner" value="" />
-			     <input type="hidden" name="holder" value="" />
 			     
 			     <br />
 			     <input type="submit" />

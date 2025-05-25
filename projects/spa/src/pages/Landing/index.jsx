@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from "react"
 import style from "../../utils/style"
 import { AuthContext } from "../../contexts/AuthContext"
-import { WalletContext } from "../../contexts/WalletContext"
+import { WalletContext, authenticate } from "../../contexts/WalletContext"
 import { useWallets, useConnect, useDisconnect } from "@wallet-standard/react-core"
 
 function Star() {
@@ -128,6 +128,7 @@ export default function Landing() {
     async function choose(uiwallet) {
 	let connected = await connect()
 	setSelected(connected[0]) // @todo user has to make this choice
+	await authenticate(connected[0])
     }
 
     function truncated(str, limit = 7) {
