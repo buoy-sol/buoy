@@ -72,6 +72,9 @@ headers = NS(
 headers.full = dict(headers.main, **headers.cors)
 
 CardAddress = typing.NewType("CardAddress", Pubkey)
+DictStudycard = typing.NewType(
+    "DictStudycard", dict
+)  # a Buoy studycard, represented as a dict
 
 
 @dataclass
@@ -111,6 +114,12 @@ with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         db.setdefault("cards", [])
         db.setdefault("ratings", [])
         db.setdefault("processes", [])
+
+## DEFAULTS FOR EVENTS DB
+with dbm_open_bytes(F.resolve_events_path(api.config["DATABASE"]), "c") as eventdb:
+    if "events" not in eventdb:
+        eventdb.setdefault("events", [])
+
 
 ## AUTH
 
@@ -252,7 +261,9 @@ async def list_cards():
     ).value:
         k = token.account.data.parsed["info"]["mint"]
         v = float(token.account.data.parsed["info"]["tokenAmount"]["amount"])
-        tokens[k] = v
+
+        if 0 < v:
+            tokens[k] = v
 
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         criteria = {}
@@ -362,6 +373,11 @@ async def card_media_read(filename: str):
     raise NotImplementedError
 
 
+# @todo move
+CardIdentifier = typing.NewType("CardIdentifier", str)
+AverageRating = typing.NewType("AverageRating", float)
+
+
 @api.route("/api/dev/cards/choices", methods=["GET", "OPTIONS"])
 async def cards_next():
     if "OPTIONS" == req.method:
@@ -372,6 +388,8 @@ async def cards_next():
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
 
+    tags = req.args.get("tags", ["drawing"])
+
     tokens: dict[str, float] = {}
 
     for token in rpc.client.get_token_accounts_by_owner_json_parsed(
@@ -381,7 +399,9 @@ async def cards_next():
     ).value:
         k = token.account.data.parsed["info"]["mint"]
         v = float(token.account.data.parsed["info"]["tokenAmount"]["amount"])
-        tokens[k] = v
+
+        if 0 < v:
+            tokens[k] = v
 
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
         _user = next(filter(F.where({"address": address}), db["users"].values()), None)
@@ -389,61 +409,99 @@ async def cards_next():
 
         user = User(**_user)
 
-        ratings = list(
-            map(
-                Rating.from_dict,
-                filter(F.where({"contributor": user.address}), db["ratings"]),
-            )
+        by_access_type: typing.Iterator[DictStudycard] = filter(
+            F.where({"access": "rent"}), db["cards"]
         )
 
-        user_rated_cards = list(map(operator.attrgetter("card"), ratings))
-
-        relevant = list(
-            filter(
-                lambda e: e.card in user_rated_cards and e.contributor != user.address,
-                map(Rating.from_dict, db["ratings"]),
-            )
+        has_tag: typing.Iterator[DictStudycard] = filter(
+            lambda e: 0 < F.counted(F.intersection(tags, e["tags"])), by_access_type
         )
 
-        grouped = itertools.groupby(db["ratings"], key=operator.itemgetter("card"))
-        rated = {}
+        by_tag_count: list[DictStudycard] = sorted(
+            has_tag,
+            key=lambda e: F.counted(F.intersection(tags, e["tags"])),
+            reverse=True,  # by highest tag intersection count
+        )
 
-        for k, v in grouped:
-            values = list(map(operator.itemgetter("value"), list(v)))
-            if not any(values):
-                rated[k] = 1
-                continue
+        rates: dict[CardIdentifier, list[int]] = {}
+        rated: dict[CardIdentifier, AverageRating] = {}
 
-            rated[k] = sum(values) / len(values)
+        user_skill = 0  # will get overwritten if any rating events have taken place
 
-        user_skill = user.get_skill(ratings, relevant)
+        with dbm_open_bytes(
+            F.resolve_events_path(api.config["DATABASE"]), "c"
+        ) as eventdb:
 
-        def with_held_amount(e: dict) -> dict:
-            e["spl"] = {"data": {"amount": tokens.get(e["address"], 0.0)}}
-            return e
+            rating_ids_by_address: list[str] = list(
+                set(
+                    map(
+                        operator.itemgetter(0),
+                        filter(
+                            F.where_eav(["?", ":rating/by", address]), eventdb["events"]
+                        ),
+                    )
+                )
+            )
 
-        # find next where
-        #   access: rent
-        #   rating > user_skill
-        #   sm2 due > time
+            ratings_by_address: list[dict] = list(
+                map(F.load_entity(eventdb["events"]), rating_ids_by_address)
+            )
+
+            card_ids = list(
+                set(map(operator.itemgetter(":rating/for"), ratings_by_address))
+            )
+
+            rating_ids_per_card: list[list[str]] = list(
+                map(
+                    lambda card_id: (
+                        map(
+                            operator.itemgetter(0),
+                            filter(
+                                F.where_eav(["?", ":rating/for", card_id]),
+                                eventdb["events"],
+                            ),
+                        )
+                    ),
+                    card_ids,
+                )
+            )
+
+            rating_ids_by_card: list[str] = []
+
+            if any(rating_ids_per_card):
+                match len(rating_ids_per_card):
+                    case 1:
+                        rating_ids_by_card = rating_ids_per_card[0]
+                    case _:
+                        rating_ids_by_card = list(set(operator.iconcat(rating_ids_per_card)))
+                    
+            ratings_by_others: list[dict] = list(
+                filter(
+                    F.where({":rating/by": lambda e: e != address}),
+                    map(F.load_entity(eventdb["events"]), rating_ids_by_card),
+                )
+            )
+
+            for entity in itertools.chain(ratings_by_address, ratings_by_others):
+                rates.setdefault(entity[":system/entity-id"], [])
+                rates[entity[":system/entity-id"]].append(int(entity[":rating/value"]))
+
+            for k, v in rates.items():
+                rated[k] = sum(v) / len(v)
+
+            user_skill = user.get_skill(ratings_by_address, ratings_by_others)
+
         next_rent = next(
             map(
-                with_held_amount,
-                map(
-                    operator.methodcaller("copy"),
-                    filter(
-                        lambda e: rated.get(e["identifier"], 0) >= user_skill,
-                        filter(F.where({"access": "rent"}), db["cards"]),
-                    ),
+                operator.methodcaller("copy"),
+                filter(
+                    lambda e: rated.get(e["identifier"], 0) >= user_skill,
+                    filter(F.where({"access": "rent"}), db["cards"]),
                 ),
             ),
             None,
         )
 
-        # find next where
-        #   access: free
-        #   rating > user_skill
-        #   sm2 due > time
         next_free = next(
             filter(
                 lambda e: rated.get(e["identifier"], 0) >= user_skill,
@@ -451,6 +509,93 @@ async def cards_next():
             ),
             None,
         )
+
+        with dbm_open_bytes(
+            F.resolve_reviews_path(api.config["DATABASE"], address), "c"
+        ) as sm2db:
+            sm2db.setdefault("reviews", [])  # ?????
+
+            # find next appropriate card by SM2 and override next_rent, if necessary
+            has_tag: typing.Iterator[dict] = filter(
+                lambda e: 0 < F.counted(F.intersection(tags, e.get("tags", []))),
+                filter(F.where({"access": "rent"}), sm2db["reviews"]),
+            )
+
+            by_tag_count: list[dict] = sorted(
+                has_tag,
+                key=lambda e: F.counted(F.intersection(tags, e["tags"])),
+                reverse=True,  # by highest tag intersection count
+            )
+
+            flashcard = next(
+                iter(
+                    sorted(
+                        by_tag_count,
+                        key=lambda e: datetime.fromisoformat(
+                            e["ref"]["due"]
+                        ).timestamp(),
+                    )
+                ),
+                None,
+            )
+
+            if flashcard is not None:
+                if rated.get(flashcard["identifier"]) in range(
+                    user_skill, rated.get(next_rent["identifier"])
+                ):
+                    fetched = next(
+                        filter(
+                            F.where({"identifier": flashcard["identifier"]}),
+                            db["cards"],
+                        ),
+                        None,
+                    )
+                    if fetched is not None:
+                        next_rent = fetched
+
+            #### @todo: DRY
+
+            # find next appropriate card by SM2 and override next_free, if necessary
+            has_tag: typing.Iterator[dict] = filter(
+                lambda e: 0 < F.counted(F.intersection(tags, e["tags"])),
+                filter(F.where({"access": "free"}), sm2db["reviews"]),
+            )
+
+            by_tag_count: list[dict] = sorted(
+                has_tag,
+                key=lambda e: F.counted(F.intersection(tags, e["tags"])),
+                reverse=True,  # by highest tag intersection count
+            )
+
+            flashcard = next(
+                iter(
+                    sorted(
+                        by_tag_count,
+                        key=lambda e: datetime.fromisoformat(
+                            e["ref"]["due"]
+                        ).timestamp(),
+                    )
+                ),
+                None,
+            )
+
+            if flashcard is not None:
+                if rated.get(flashcard["identifier"]) in range(
+                    user_skill, rated.get(next_free["identifier"])
+                ):
+                    fetched = next(
+                        filter(
+                            F.where({"identifier": flashcard["identifier"]}),
+                            db["cards"],
+                        ),
+                        None,
+                    )
+                    if fetched is not None:
+                        next_free = fetched
+
+        def with_held_amount(e: dict) -> dict:
+            e["spl"] = {"data": {"amount": tokens.get(e["address"], 0.0)}}
+            return e
 
         # ?
         picked = None
@@ -462,7 +607,13 @@ async def cards_next():
                 picked = held.identifier
 
         return Response(
-            json.dumps({"free": next_free, "rent": next_rent, "picked": picked}),
+            json.dumps(
+                {
+                    "free": next_free,
+                    "rent": with_held_amount(next_rent),
+                    "picked": picked,
+                }
+            ),
             headers=headers.full,
         )
 
@@ -637,9 +788,12 @@ async def card_review(card_id: str, value: int):
     if err is not None:
         return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
 
+    card = None
     with dbm_open_bytes(api.config["DATABASE"], "c") as db:
-        if not any(filter(F.where({"identifier": card_id}), db["cards"])):
-            raise Exception(f"Card {card_id} not found")
+        card = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
+
+    if card is None:
+        raise Exception(f"Card {card_id} not found")
 
     with dbm_open_bytes(
         F.resolve_reviews_path(api.config["DATABASE"], address), "c"
@@ -659,7 +813,9 @@ async def card_review(card_id: str, value: int):
 
         ref, _ = Scheduler.review_card(ref, int(value), datetime.now(timezone.utc))
 
-        flashcard = dict(flashcard or {}, ref=ref.to_dict())
+        flashcard = dict(
+            flashcard or {}, identifier=card_id, ref=ref.to_dict(), access=card.get("access", "free")
+        )
 
         if not any(db["reviews"]):
             db["reviews"].append(flashcard)
@@ -688,14 +844,40 @@ async def card_rating(card_id: str, value: int):
 
         rating_id = str(uuid.uuid4())
 
-        db["events"].append([rating_id, ":rating/value", value])
+        added = True
 
-        db["events"].append([rating_id, ":rating/by", address])
+        db["events"].append(
+            [rating_id, ":rating/value", int(value), int(time.time()), added]
+        )
 
-        db["events"].append([rating_id, ":rating/for", card_id])
+        db["events"].append([rating_id, ":rating/by", address, int(time.time()), added])
+
+        db["events"].append(
+            [rating_id, ":rating/for", card_id, int(time.time()), added]
+        )
 
     return Response("", headers=headers.cors)
 
+
+@api.route("/api/dev/cards/<card_id>/done", methods=["PATCH", "OPTIONS"])
+async def card_done(card_id: str):
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
+
+    if err is not None:
+        return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
+
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        _card: DictStudycard = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
+        assert _card is not None
+        
+        card_idx = db["cards"].index(_card)
+        db["cards"][card_idx]["holder"] = None
+        db["users"][address]["holding"] = None
+    
+    return Response("", headers=headers.cors)
 
 ## DECKS
 # ...

@@ -20,20 +20,20 @@ class Studycard:
     # system-wide identifier
     identifier: str
 
-    # address of the struct, on chain, if any
-    address: Pubkey | None
-
     # who had contributed the Studycard
     contributor: Pubkey
 
-    # actual IP owner
-    owner: Pubkey
-
-    # current holder
-    holder: Pubkey
-
     # a label for the card
     name: str
+
+    # actual IP owner
+    owner: Pubkey | None = None
+
+    # address of the struct, on chain, if any
+    address: Pubkey | None = None
+
+    # current holder, if any
+    holder: Pubkey | None = None
 
     # address of the token account
     token_account: Pubkey | None = None

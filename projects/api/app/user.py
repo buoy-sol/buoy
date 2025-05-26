@@ -17,19 +17,19 @@ class User:
         return cls()
 
     def get_skill(
-        self, rates_by_user: list[object], rates_by_others: list[object]
+        self, rates_by_user: list[dict], rates_by_others: list[dict]
     ) -> float:
 
         by_user = {}
         by_others = {}
 
         for rate in rates_by_user:
-            by_user.setdefault(rate.card, [])
-            by_user[rate.card].append(rate.value)
+            by_user.setdefault(rate[":rating/for"], [])
+            by_user[rate[":rating/for"]].append(int(rate[":rating/value"]))
 
         for rate in rates_by_others:
-            by_others.setdefault(rate.card, [])
-            by_others[rate.card].append(rate.value)
+            by_others.setdefault(rate[":rating/for"], [])
+            by_others[rate[":rating/for"]].append(int(rate[":rating/value"]))
 
         for k, rates in by_user.items():
             by_user[k] = sum(rates) / len(rates)

@@ -2,7 +2,6 @@ import { useContext, useEffect, useState } from "react"
 import { API } from "../utils/api"
 
 export default function Cardteaser({style, value: data}) {                                                                                                                                     
-    console.log(["LOOKING FOR SPL", data])
     
     return (
         <div className="picker"

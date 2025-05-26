@@ -170,9 +170,9 @@ function WalletProvider({ children }) {
 	    setSelectedLocal(undefined)
 	}
 
-	if (walletAccount) {
-	    authenticate(walletAccount)
-	}
+	// if (walletAccount) {
+	//    authenticate(walletAccount)
+	// }
     }, [selected, walletAccount])
     
     return <WalletContext.Provider value={useMemo(function() { return [walletAccount, setSelected, [walletAccount]]})}>
@@ -180,4 +180,4 @@ function WalletProvider({ children }) {
     </WalletContext.Provider>
 }
 
-export { WalletContext, WalletProvider }
+export { WalletContext, WalletProvider, authenticate }
