@@ -25,11 +25,11 @@ class User:
 
         for rate in rates_by_user:
             by_user.setdefault(rate[":rating/for"], [])
-            by_user[rate[":rating/for"]].append(rate[":rating/value"])
+            by_user[rate[":rating/for"]].append(int(rate[":rating/value"]))
 
         for rate in rates_by_others:
             by_others.setdefault(rate[":rating/for"], [])
-            by_others[rate[":rating/for"]].append(rate[":rating/value"])
+            by_others[rate[":rating/for"]].append(int(rate[":rating/value"]))
 
         for k, rates in by_user.items():
             by_user[k] = sum(rates) / len(rates)

@@ -260,6 +260,13 @@ export default function TheZone() {
         })
     }
 
+    async function nextCard(cardIdentifier) {
+	await fetch(`${API}/cards/${cardIdentifier}/done`, {
+	    method: "PATCH",
+	    headers: {"Authorization": `Bearer ${localStorage.getItem("bearer")}`}
+	})
+    }
+
     return (
 	<div id="the-zone" style={{textTransform: "uppercase"}}>
 	    <VisibleContext.Provider value={{visible, setVisible}}>
@@ -273,6 +280,8 @@ export default function TheZone() {
 		    <button className="button" style={{background: style.color.student}} onClick={function(){toggle("A")}}>TOGGLE SIDE A</button>
 		    <button className="button" onClick={function(){toggle("MENU")}}>MENU</button>
 		    <button className="button" onClick={function(){toggle("RATE")}}>DONE</button>
+		    {visible.RATE &&
+		     <button className="button" onClick={function() { nextCard(cards.picked) }}>NEXT</button>}
 		</div>
 		
 		<div style={{display: "flex", flexWrap: "wrap"}}>

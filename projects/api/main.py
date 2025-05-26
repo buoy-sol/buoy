@@ -469,8 +469,12 @@ async def cards_next():
             rating_ids_by_card: list[str] = []
 
             if any(rating_ids_per_card):
-                rating_ids_by_card = list(set(operator.iconcat(rating_ids_per_card)))
-
+                match len(rating_ids_per_card):
+                    case 1:
+                        rating_ids_by_card = rating_ids_per_card[0]
+                    case _:
+                        rating_ids_by_card = list(set(operator.iconcat(rating_ids_per_card)))
+                    
             ratings_by_others: list[dict] = list(
                 filter(
                     F.where({":rating/by": lambda e: e != address}),
@@ -480,7 +484,7 @@ async def cards_next():
 
             for entity in itertools.chain(ratings_by_address, ratings_by_others):
                 rates.setdefault(entity[":system/entity-id"], [])
-                rates[entity[":system/entity-id"]].append(entity[":rating/value"])
+                rates[entity[":system/entity-id"]].append(int(entity[":rating/value"]))
 
             for k, v in rates.items():
                 rated[k] = sum(v) / len(v)
@@ -513,7 +517,7 @@ async def cards_next():
 
             # find next appropriate card by SM2 and override next_rent, if necessary
             has_tag: typing.Iterator[dict] = filter(
-                lambda e: 0 < F.counted(F.intersection(tags, e["tags"])),
+                lambda e: 0 < F.counted(F.intersection(tags, e.get("tags", []))),
                 filter(F.where({"access": "rent"}), sm2db["reviews"]),
             )
 
@@ -810,7 +814,7 @@ async def card_review(card_id: str, value: int):
         ref, _ = Scheduler.review_card(ref, int(value), datetime.now(timezone.utc))
 
         flashcard = dict(
-            flashcard or {}, ref=ref.to_dict(), access=card.get("access", "free")
+            flashcard or {}, identifier=card_id, ref=ref.to_dict(), access=card.get("access", "free")
         )
 
         if not any(db["reviews"]):
@@ -843,7 +847,7 @@ async def card_rating(card_id: str, value: int):
         added = True
 
         db["events"].append(
-            [rating_id, ":rating/value", value, int(time.time()), added]
+            [rating_id, ":rating/value", int(value), int(time.time()), added]
         )
 
         db["events"].append([rating_id, ":rating/by", address, int(time.time()), added])
@@ -854,6 +858,26 @@ async def card_rating(card_id: str, value: int):
 
     return Response("", headers=headers.cors)
 
+
+@api.route("/api/dev/cards/<card_id>/done", methods=["PATCH", "OPTIONS"])
+async def card_done(card_id: str):
+    if "OPTIONS" == req.method:
+        return Response("", headers=headers.cors)
+
+    address, err = F.resolve_address_from_bearer(req.headers, mem)
+
+    if err is not None:
+        return Response(json.dumps({"failed": err}), status=400, headers=headers.full)
+
+    with dbm_open_bytes(api.config["DATABASE"], "c") as db:
+        _card: DictStudycard = next(filter(F.where({"identifier": card_id}), db["cards"]), None)
+        assert _card is not None
+        
+        card_idx = db["cards"].index(_card)
+        db["cards"][card_idx]["holder"] = None
+        db["users"][address]["holding"] = None
+    
+    return Response("", headers=headers.cors)
 
 ## DECKS
 # ...

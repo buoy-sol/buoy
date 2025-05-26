@@ -377,6 +377,9 @@ export default function Tokens() {
 
 			     <label for="for-free">Free</label>
 			     <input id="for-free" type="radio" name="access" value="free" />
+
+			     <label for="tags">Tags</label>
+			     <input id="tags" type="tags" name="tags" placeholder="Comma separated list of tags" />
 			     
 			     <br />
 			     <input type="submit" />
