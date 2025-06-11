@@ -145,9 +145,9 @@ function Cardpicker(props) {
 	    <button className="button">
 		<a target="_blank" href={explorer}>see on chain &#x2197;</a>
 	    </button>
-	    <button disabled={(data.spl.data.amount == 0)}
+	    <button disabled={(data.spl?.data.amount == 0)}
 		    className="button"
-		    style={{background: ((data.spl.data.amount == 0) ? "lightgrey" : "#fff")}}
+		    style={{background: ((data.spl?.data.amount == 0) ? "lightgrey" : "#fff")}}
 		    onClick={function(e) {
 			choose("?")
 		    }}>{data.access.toUpperCase()}</button>
